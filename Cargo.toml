@@ -1,0 +1,24 @@
+[package]
+name = "lipu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+color-eyre = "0.6.3"
+rss = { version = "2.0.8", features = ["atom", "atom_syndication", "mime", "url", "validation"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+enum_glob_use = { level = "deny", priority = 8 }
+pedantic = { level = "deny", priority = 10 }
+nursery = { level = "deny", priority = 10 }
+unwrap_used = { level = "warn", priority = 9 }
+
+[profile.release]
+opt-level = 'z'   # Optimize for size.
+lto = true        # Enable Link Time Optimisation
+codegen-units = 1 # Reduced to increase optimisations.
+panic = 'abort'   # Abort on panic
+strip = "symbols" # Strip symbols from binary
