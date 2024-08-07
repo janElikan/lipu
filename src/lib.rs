@@ -9,6 +9,7 @@ pub struct Article {
     pub description: Option<String>,
     pub body: ArticleBody,
     pub created: Option<DateTime<Utc>>,
+    pub updated: Option<DateTime<Utc>>,
     pub viewed: Progress,
 }
 
@@ -38,45 +39,73 @@ pub struct MediaPayload {
 pub enum ArticleCreationError {
     UnknownMimeType,
     EmptyBody,
+    EmptyContent,
+    MissingDownloadUrl,
 }
 
-impl TryFrom<rss::Item> for Article {
+impl TryFrom<feed_rs::model::Entry> for Article {
     type Error = ArticleCreationError;
 
-    fn try_from(item: rss::Item) -> Result<Self, Self::Error> {
-        let body = if let Some(media) = item.enclosure {
-            match media
+    fn try_from(entry: feed_rs::model::Entry) -> Result<Self, Self::Error> {
+        let summary = match entry.summary {
+            Some(text) => Some(text.content),
+            None => None,
+        };
+
+        let body = if entry.media.is_empty() {
+            let text = match entry.content {
+                Some(content) => content.body,
+                None => None,
+            };
+
+            ArticleBody::Text(text.unwrap_or(summary.clone().ok_or(Self::Error::EmptyBody)?))
+        } else {
+            let media = entry
+                .media
+                .into_iter()
+                .next()
+                .expect("just checked that it had media and now it doesn't");
+
+            // I haven't seen anyone attach more than one media item...
+            let media = media
+                .content
+                .into_iter()
+                .next()
+                .ok_or(Self::Error::EmptyContent)?;
+
+            let payload = MediaPayload {
+                url: media
+                    .url
+                    .ok_or(Self::Error::MissingDownloadUrl)?
+                    .to_string(),
+                mime_type: media
+                    .content_type
+                    .ok_or(Self::Error::UnknownMimeType)?
+                    .to_string(),
+                downloaded: false,
+            };
+
+            match payload
                 .mime_type
                 .split_once('/')
                 .ok_or(Self::Error::UnknownMimeType)?
                 .0
             {
-                "audio" => ArticleBody::Audio(media.into()),
-                "video" => ArticleBody::Video(media.into()),
-                _ => todo!(),
+                "audio" => ArticleBody::Audio(payload),
+                "video" => ArticleBody::Video(payload),
+                _ => return Err(Self::Error::UnknownMimeType),
             }
-        } else {
-            let content = item
-                .content
-                .unwrap_or(item.description.clone().ok_or(Self::Error::EmptyBody)?);
-            ArticleBody::Text(content)
         };
 
         Ok(Self {
-            name: item.title.unwrap_or(
-                item.description
-                    .as_ref()
-                    .ok_or(Self::Error::EmptyBody)?
-                    .chars()
-                    .as_str()[..32]
-                    .to_string(),
-            ),
-            source: match item.source {
-                Some(source) => Some(source.url),
-                None => None,
+            name: match entry.title {
+                Some(text) => text.content,
+                None => "??".to_string(),
             },
-            description: item.description,
-            created: item.pub_date.and_then(|date| date.parse().ok()),
+            source: entry.source,
+            description: summary,
+            created: entry.published,
+            updated: entry.updated,
             viewed: Progress::None,
             body,
         })
@@ -91,15 +120,5 @@ impl Display for Article {
             _ => "[partial]",
         };
         write!(f, "{} {}", status, self.name)
-    }
-}
-
-impl From<rss::Enclosure> for MediaPayload {
-    fn from(value: rss::Enclosure) -> Self {
-        Self {
-            url: value.url,
-            mime_type: value.mime_type,
-            downloaded: false,
-        }
     }
 }

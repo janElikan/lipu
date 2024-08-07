@@ -10,14 +10,14 @@ async fn main() -> Result<()> {
 
     let mut feeds = vec![
         Feed::new("https://www.0atman.com/feed.xml"),
-        Feed::new("https://www.spreaker.com/show/6029902/episodes/feed"),
-        Feed::new("https://www.youtube.com/feeds/videos.xml?channel_id=UCMHZ1P2iYimObhtHKfPz7gw"),
+        Feed::new("https://www.spreaker.com/show/4488937/episodes/feed"), // LT
+        Feed::new("https://www.spreaker.com/show/6029902/episodes/feed"), // TPC
     ];
 
     refresh_feeds(&mut feeds).await?;
 
     let mut articles: Vec<_> = feeds.into_iter().flat_map(|feed| feed.articles).collect();
-    articles.sort_by(|a, b| a.created.partial_cmp(&b.created).expect("sorting error?"));
+    articles.sort_by(|a, b| b.created.partial_cmp(&a.created).expect("sorting error?"));
 
     loop {
         let selected = inquire::Select::new("Select an article you want to view", articles.clone())
@@ -67,11 +67,11 @@ async fn refresh_feeds(feeds: &mut Vec<Feed>) -> Result<()> {
 }
 
 async fn fetch(feed_url: &str) -> Result<Vec<lipu::Article>> {
-    let xml = reqwest::get(feed_url).await?.bytes().await?;
-    let feed = rss::Channel::read_from(&xml[..])?;
+    let xml = reqwest::get(feed_url).await?.text().await?;
+    let feed = feed_rs::parser::parse(xml.as_bytes())?;
 
     Ok(feed
-        .items
+        .entries
         .into_iter()
         .flat_map(lipu::Article::try_from)
         .collect())

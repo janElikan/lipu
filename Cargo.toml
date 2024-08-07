@@ -6,9 +6,9 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.38"
 color-eyre = "0.6.3"
+feed-rs = "2.1.0"
 inquire = "0.7.5"
 reqwest = { version = "0.12.5", features = ["rustls-tls"], default-features = false }
-rss = { version = "2.0.8", features = ["atom", "atom_syndication", "mime", "url", "validation"] }
 tokio = { version = "1.39.2", features = ["full", "net", "rt"] }
 
 [lints.rust]
