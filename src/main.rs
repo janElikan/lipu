@@ -1,20 +1,23 @@
-use color_eyre::eyre;
-use std::fs;
-use std::io;
+use color_eyre::eyre::Result;
 
-fn main() -> eyre::Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     color_eyre::install()?;
-    let file = fs::File::open("feed.xml").unwrap();
-    let buffer = io::BufReader::new(file);
-    let feed = rss::Channel::read_from(buffer).unwrap();
 
-    let articles: Vec<_> = feed
-        .items
-        .into_iter()
-        .map(lipu::Article::try_from)
-        .collect();
+    let articles = fetch("http://www.0atman.com/feed.xml").await?;
 
     dbg!(articles);
 
     Ok(())
+}
+
+async fn fetch(feed_url: &str) -> Result<Vec<lipu::Article>> {
+    let xml = reqwest::get(feed_url).await?.bytes().await?;
+    let feed = rss::Channel::read_from(&xml[..])?;
+
+    Ok(feed
+        .items
+        .into_iter()
+        .flat_map(lipu::Article::try_from)
+        .collect())
 }
