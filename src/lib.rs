@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use chrono::{DateTime, Utc};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Article {
     pub name: String,
     pub source: Option<String>,
@@ -12,14 +12,14 @@ pub struct Article {
     pub viewed: Progress,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ArticleBody {
     Text(String),
     Video(MediaPayload),
     Audio(MediaPayload),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Progress {
     None,
     UntilLine(usize),
@@ -27,7 +27,7 @@ pub enum Progress {
     Fully,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MediaPayload {
     pub url: String,
     pub mime_type: String,
