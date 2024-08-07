@@ -1,9 +1,11 @@
+use chrono::{DateTime, Utc};
+
 #[derive(Debug)]
 pub struct Article {
     pub source: Option<String>,
     pub description: Option<String>,
     pub body: ArticleBody,
-    pub created: Option<String>, // should be date, eventually
+    pub created: Option<DateTime<Utc>>,
     pub viewed: Progress,
 }
 
@@ -63,7 +65,7 @@ impl TryFrom<rss::Item> for Article {
                 None => None,
             },
             description: item.description,
-            created: item.pub_date,
+            created: item.pub_date.and_then(|date| date.parse().ok()),
             viewed: Progress::None,
             body,
         })

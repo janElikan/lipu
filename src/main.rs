@@ -1,12 +1,48 @@
+use chrono::{DateTime, Utc};
 use color_eyre::eyre::Result;
+use lipu::Article;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let articles = fetch("http://www.0atman.com/feed.xml").await?;
+    let mut feeds = vec![
+        Feed::new("https://www.0atman.com/feed.xml"),
+        Feed::new("https://www.spreaker.com/show/6029902/episodes/feed"),
+    ];
+
+    refresh_feeds(&mut feeds).await?;
+
+    let mut articles: Vec<_> = feeds.into_iter().flat_map(|feed| feed.articles).collect();
+    articles.sort_by(|a, b| a.created.partial_cmp(&b.created).expect("sorting error?"));
 
     dbg!(articles);
+
+    Ok(())
+}
+
+#[derive(Debug)]
+struct Feed {
+    url: String,
+    articles: Vec<Article>,
+    last_updated: DateTime<Utc>,
+}
+
+impl Feed {
+    fn new(url: &str) -> Self {
+        Self {
+            url: String::from(url),
+            articles: Vec::new(),
+            last_updated: DateTime::UNIX_EPOCH,
+        }
+    }
+}
+
+async fn refresh_feeds(feeds: &mut Vec<Feed>) -> Result<()> {
+    for feed in feeds {
+        feed.articles = fetch(&feed.url).await?;
+        feed.last_updated = Utc::now();
+    }
 
     Ok(())
 }
