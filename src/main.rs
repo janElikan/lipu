@@ -8,7 +8,7 @@ fn main() -> eyre::Result<()> {
     let buffer = io::BufReader::new(file);
     let feed = rss::Channel::read_from(buffer).unwrap();
 
-    let articles: Vec<_> = feed.items.into_iter().map(Article::from).collect();
+    let articles: Vec<_> = feed.items.into_iter().map(Article::try_from).collect();
 
     dbg!(articles);
 
@@ -47,25 +47,35 @@ struct MediaPayload {
     downloaded: bool,
 }
 
-impl From<rss::Item> for Article {
-    fn from(item: rss::Item) -> Self {
-        let body = match item.enclosure {
-            Some(media) => match media.mime_type.split_once('/').unwrap().0 {
+#[derive(Debug)]
+enum ArticleCreationError {
+    UnknownMimeType,
+    EmptyBody,
+}
+
+impl TryFrom<rss::Item> for Article {
+    type Error = ArticleCreationError;
+
+    fn try_from(item: rss::Item) -> Result<Self, Self::Error> {
+        let body = if let Some(media) = item.enclosure {
+            match media
+                .mime_type
+                .split_once('/')
+                .ok_or(Self::Error::UnknownMimeType)?
+                .0
+            {
                 "audio" => ArticleBody::Audio(media.into()),
                 "video" => ArticleBody::Video(media.into()),
                 _ => todo!(),
-            },
-            None => {
-                let content = item.content.unwrap_or(
-                    item.description
-                        .clone()
-                        .expect("found an item without any body"),
-                );
-                ArticleBody::Text(content)
             }
+        } else {
+            let content = item
+                .content
+                .unwrap_or(item.description.clone().ok_or(Self::Error::EmptyBody)?);
+            ArticleBody::Text(content)
         };
 
-        Self {
+        Ok(Self {
             source: match item.source {
                 Some(source) => Some(source.url),
                 None => None,
@@ -74,7 +84,7 @@ impl From<rss::Item> for Article {
             created: item.pub_date,
             viewed: Progress::None,
             body,
-        }
+        })
     }
 }
 
