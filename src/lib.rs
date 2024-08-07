@@ -1,7 +1,10 @@
+use std::fmt::Display;
+
 use chrono::{DateTime, Utc};
 
 #[derive(Debug)]
 pub struct Article {
+    pub name: String,
     pub source: Option<String>,
     pub description: Option<String>,
     pub body: ArticleBody,
@@ -60,6 +63,14 @@ impl TryFrom<rss::Item> for Article {
         };
 
         Ok(Self {
+            name: item.title.unwrap_or(
+                item.description
+                    .as_ref()
+                    .ok_or(Self::Error::EmptyBody)?
+                    .chars()
+                    .as_str()[..32]
+                    .to_string(),
+            ),
             source: match item.source {
                 Some(source) => Some(source.url),
                 None => None,
@@ -69,6 +80,17 @@ impl TryFrom<rss::Item> for Article {
             viewed: Progress::None,
             body,
         })
+    }
+}
+
+impl Display for Article {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let status = match self.viewed {
+            Progress::None => "[new]    ",
+            Progress::Fully => "[viewed] ",
+            _ => "[partial]",
+        };
+        write!(f, "{} {}", status, self.name)
     }
 }
 

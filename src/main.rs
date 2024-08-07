@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::Result;
-use lipu::Article;
+use lipu::{Article, ArticleBody};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -16,7 +16,12 @@ async fn main() -> Result<()> {
     let mut articles: Vec<_> = feeds.into_iter().flat_map(|feed| feed.articles).collect();
     articles.sort_by(|a, b| a.created.partial_cmp(&b.created).expect("sorting error?"));
 
-    dbg!(articles);
+    let selected = inquire::Select::new("Select an article you want to view", articles).prompt()?;
+    match selected.body {
+        ArticleBody::Text(text) => println!("#{}\n{}", selected.name, text),
+        ArticleBody::Audio(payload) => todo!(),
+        ArticleBody::Video(payload) => todo!(),
+    }
 
     Ok(())
 }
