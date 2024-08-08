@@ -1,7 +1,10 @@
 use std::fs;
 
 use color_eyre::eyre::Result;
-use lipu::{core::ArticleBody, App};
+use lipu::{
+    core::{ArticleBody, Progress},
+    App,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -14,10 +17,16 @@ async fn main() -> Result<()> {
         .add_feed("https://www.youtube.com/feeds/videos.xml?channel_id=UCUMwY9iS8oMyWDYIe6_RmoA"); // NB
 
     loop {
-        let articles = app.fetch().await;
+        let mut articles = app.fetch().await;
 
         let selected =
             inquire::Select::new("What do you want to view?", articles.clone()).prompt()?;
+
+        articles
+            .iter_mut()
+            .find(|candidate| candidate.id == selected.id)
+            .expect("Error in the inquire crate")
+            .viewed = Progress::Fully;
 
         match &selected.body {
             ArticleBody::Text(text) => println!("#{}\n{}", selected.name, text),
