@@ -1,117 +1,8 @@
 use std::fmt::Display;
 
-use chrono::{DateTime, Utc};
+pub mod core;
 
-#[derive(Debug, Clone)]
-pub struct Article {
-    pub name: String,
-    pub source: Option<String>,
-    pub description: Option<String>,
-    pub body: ArticleBody,
-    pub created: Option<DateTime<Utc>>,
-    pub updated: Option<DateTime<Utc>>,
-    pub viewed: Progress,
-}
-
-#[derive(Debug, Clone)]
-pub enum ArticleBody {
-    Text(String),
-    Video(MediaPayload),
-    Audio(MediaPayload),
-    YouTubeLink(String),
-}
-
-#[derive(Debug, Clone)]
-pub enum Progress {
-    None,
-    UntilLine(usize),
-    UntilSecond(usize),
-    Fully,
-}
-
-#[derive(Debug, Clone)]
-pub struct MediaPayload {
-    pub url: String,
-    pub mime_type: String,
-    pub downloaded: bool,
-}
-
-#[derive(Debug)]
-pub enum ArticleCreationError {
-    UnknownMimeType,
-    EmptyBody,
-    EmptyContent,
-    MissingDownloadUrl,
-}
-
-impl TryFrom<feed_rs::model::Entry> for Article {
-    type Error = ArticleCreationError;
-
-    fn try_from(entry: feed_rs::model::Entry) -> Result<Self, Self::Error> {
-        let summary = match entry.summary {
-            Some(text) => Some(text.content),
-            None => None,
-        };
-
-        let body = if entry.media.is_empty() {
-            let text = match entry.content {
-                Some(content) => content.body,
-                None => None,
-            };
-
-            ArticleBody::Text(text.unwrap_or(summary.clone().ok_or(Self::Error::EmptyBody)?))
-        } else {
-            let media = entry
-                .media
-                .into_iter()
-                .next()
-                .expect("just checked that it had media and now it doesn't");
-
-            // I haven't seen anyone attach more than one media item...
-            let media = media
-                .content
-                .into_iter()
-                .next()
-                .ok_or(Self::Error::EmptyContent)?;
-
-            let payload = MediaPayload {
-                url: media
-                    .url
-                    .ok_or(Self::Error::MissingDownloadUrl)?
-                    .to_string(),
-                mime_type: media
-                    .content_type
-                    .ok_or(Self::Error::UnknownMimeType)?
-                    .to_string(),
-                downloaded: false,
-            };
-
-            match payload
-                .mime_type
-                .split_once('/')
-                .ok_or(Self::Error::UnknownMimeType)?
-            {
-                ("application", "x-shockwave-flash") => ArticleBody::YouTubeLink(payload.url),
-                ("video", _) => ArticleBody::Video(payload),
-                ("audio", _) => ArticleBody::Audio(payload),
-                _ => return Err(Self::Error::UnknownMimeType),
-            }
-        };
-
-        Ok(Self {
-            name: match entry.title {
-                Some(text) => text.content,
-                None => "??".to_string(),
-            },
-            source: entry.source,
-            description: summary,
-            created: entry.published,
-            updated: entry.updated,
-            viewed: Progress::None,
-            body,
-        })
-    }
-}
+use core::{Article, ArticleBody, Progress};
 
 impl Display for Article {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -129,5 +20,108 @@ impl Display for Article {
         };
 
         write!(f, "{} {} {}", status, self.name, article_type)
+    }
+}
+
+#[derive(Debug)]
+enum Error {
+    NetworkError,
+    FetchTextFailed,
+    FeedParsingFailed,
+}
+
+async fn fetch(feed_url: &str) -> Result<Vec<Article>, Error> {
+    let xml = reqwest::get(feed_url)
+        .await
+        .map_err(|_| Error::NetworkError)?
+        .text()
+        .await
+        .map_err(|_| Error::FetchTextFailed)?;
+
+    let feed = feed_rs::parser::parse(xml.as_bytes()).map_err(|_| Error::FeedParsingFailed)?;
+
+    Ok(feed
+        .entries
+        .into_iter()
+        .map(Article::try_from)
+        .map(|result| match result {
+            Ok(data) => Ok(data),
+            Err(why) => {
+                println!("download item failed: `{:?}`", why);
+                Err(why)
+            }
+        })
+        .flatten()
+        .collect())
+}
+
+#[derive(Default, Clone)]
+pub struct App {
+    feed_urls: Vec<String>,
+    merge_with: Option<Vec<Article>>,
+}
+
+impl App {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            feed_urls: Vec::new(),
+            merge_with: None,
+        }
+    }
+
+    #[must_use]
+    pub fn add_feed(mut self, url: &str) -> Self {
+        self.feed_urls.push(url.to_string());
+
+        self
+    }
+
+    #[must_use]
+    pub fn copy_statuses(mut self, old_articles: Vec<Article>) -> Self {
+        self.merge_with = Some(old_articles);
+
+        self
+    }
+
+    pub async fn fetch(&self) -> Vec<Article> {
+        let mut feeds = Vec::new();
+
+        for url in &self.feed_urls {
+            println!("downloading feed {url}");
+            feeds.push(fetch(url).await);
+        }
+
+        let mut feeds: Vec<Article> = feeds
+            .into_iter()
+            .map(|result| match result {
+                Ok(data) => Ok(data),
+                Err(why) => {
+                    println!("download feed failed: `{:?}`", why);
+                    Err(why)
+                }
+            })
+            .flatten()
+            .flatten()
+            .map(|article| {
+                if let Some(others) = &self.merge_with {
+                    let Some(other) = others.iter().find(|candidate| candidate.id == article.id)
+                    else {
+                        return article;
+                    };
+
+                    Article {
+                        viewed: other.viewed.clone(),
+                        ..article
+                    }
+                } else {
+                    article
+                }
+            })
+            .collect();
+
+        feeds.sort_by(|a, b| b.created.partial_cmp(&a.created).expect("sorting failed"));
+
+        feeds
     }
 }
