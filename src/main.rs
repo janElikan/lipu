@@ -21,8 +21,8 @@ async fn main() -> Result<()> {
     articles.sort_by(|a, b| b.created.partial_cmp(&a.created).expect("sorting error?"));
 
     loop {
-        let selected = inquire::Select::new("Select an article you want to view", articles.clone())
-            .prompt()?;
+        let selected =
+            inquire::Select::new("What do you want to view?", articles.clone()).prompt()?;
 
         match &selected.body {
             ArticleBody::Text(text) => println!("#{}\n{}", selected.name, text),

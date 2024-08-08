@@ -120,6 +120,14 @@ impl Display for Article {
             Progress::Fully => "[viewed] ",
             _ => "[partial]",
         };
-        write!(f, "{} {}", status, self.name)
+
+        let article_type = match self.body {
+            ArticleBody::Text(_) => "(article)",
+            ArticleBody::Audio(_) => "(audio)",
+            ArticleBody::Video(_) => "(video)",
+            ArticleBody::YouTubeLink(_) => "(youtube video)",
+        };
+
+        write!(f, "{} {} {}", status, self.name, article_type)
     }
 }
