@@ -12,6 +12,7 @@ async fn main() -> Result<()> {
         Feed::new("https://www.0atman.com/feed.xml"),
         Feed::new("https://www.spreaker.com/show/4488937/episodes/feed"), // LT
         Feed::new("https://www.spreaker.com/show/6029902/episodes/feed"), // TPC
+        Feed::new("https://www.youtube.com/feeds/videos.xml?channel_id=UCUMwY9iS8oMyWDYIe6_RmoA"), // NB
     ];
 
     refresh_feeds(&mut feeds).await?;
@@ -35,7 +36,10 @@ async fn main() -> Result<()> {
 
                 fs::write(path, stream)?;
             }
-            ArticleBody::Video(payload) => {}
+            ArticleBody::YouTubeLink(link) => println!("\n\n{link}\n\n"),
+            ArticleBody::Video(_payload) => {
+                todo!()
+            }
         }
     }
 }

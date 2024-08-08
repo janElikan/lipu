@@ -18,6 +18,7 @@ pub enum ArticleBody {
     Text(String),
     Video(MediaPayload),
     Audio(MediaPayload),
+    YouTubeLink(String),
 }
 
 #[derive(Debug, Clone)]
@@ -89,10 +90,10 @@ impl TryFrom<feed_rs::model::Entry> for Article {
                 .mime_type
                 .split_once('/')
                 .ok_or(Self::Error::UnknownMimeType)?
-                .0
             {
-                "audio" => ArticleBody::Audio(payload),
-                "video" => ArticleBody::Video(payload),
+                ("application", "x-shockwave-flash") => ArticleBody::YouTubeLink(payload.url),
+                ("video", _) => ArticleBody::Video(payload),
+                ("audio", _) => ArticleBody::Audio(payload),
                 _ => return Err(Self::Error::UnknownMimeType),
             }
         };
