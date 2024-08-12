@@ -5,6 +5,7 @@ pub struct Article {
     pub id: String,
     pub name: String,
     pub source: Option<String>,
+    pub author: Option<String>,
     pub description: Option<String>,
     pub body: ArticleBody,
     pub created: Option<DateTime<Utc>>,
@@ -104,6 +105,20 @@ impl TryFrom<feed_rs::model::Entry> for Article {
                 None => "??".to_string(),
             },
             source: entry.source,
+            author: {
+                if entry.authors.is_empty() {
+                    None
+                } else {
+                    let authors = entry
+                        .authors
+                        .into_iter()
+                        .map(|author| author.name)
+                        .collect::<Vec<String>>()
+                        .join(", ");
+
+                    Some(authors)
+                }
+            },
             description: summary,
             created: entry.published,
             updated: entry.updated,

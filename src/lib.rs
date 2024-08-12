@@ -39,6 +39,10 @@ async fn fetch(feed_url: &str) -> Result<Vec<Article>, Error> {
         .map_err(|_| Error::ResponseProcessing)?;
 
     let feed = feed_rs::parser::parse(xml.as_bytes()).map_err(|_| Error::FeedParsing)?;
+    let feed_name = match feed.title {
+        Some(name) => Some(name.content),
+        None => None,
+    };
 
     Ok(feed
         .entries
@@ -50,6 +54,20 @@ async fn fetch(feed_url: &str) -> Result<Vec<Article>, Error> {
                 println!("download item failed: `{why:?}`");
                 Err(why)
             }
+        })
+        .map(|article| match article.source {
+            Some(_) => article,
+            None => Article {
+                source: Some(feed_url.to_string()),
+                ..article
+            },
+        })
+        .map(|article| match article.author {
+            Some(_) => article,
+            None => Article {
+                author: feed_name.clone(),
+                ..article
+            },
         })
         .collect())
 }
