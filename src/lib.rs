@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, time::UNIX_EPOCH};
 
 pub mod core;
 
@@ -121,7 +121,11 @@ impl App {
 
         feeds.sort_by(|a, b| {
             b.created
-                .partial_cmp(&a.created)
+                .unwrap_or_else(|| b.updated.unwrap_or_else(|| UNIX_EPOCH.into()))
+                .partial_cmp(
+                    &a.created
+                        .unwrap_or_else(|| a.updated.unwrap_or_else(|| UNIX_EPOCH.into())),
+                )
                 .map_or(std::cmp::Ordering::Less, |ord| ord)
         });
 
