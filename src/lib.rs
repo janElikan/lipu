@@ -20,15 +20,15 @@ pub trait LipuInterface {
     async fn refresh(&mut self) -> Result<(), Error>;
     fn remove_feed(&mut self, url: &str) -> Result<(), Error>;
 
-    fn list(&self) -> &[Metadata];
-    fn search(&self, query: &str) -> &[Metadata];
-    fn with_tag(&self) -> &[Metadata];
+    fn list(&self) -> Vec<Metadata>;
+    fn search(&self, query: &str) -> Vec<Metadata>;
+    fn with_tag(&self, tag: &str) -> Vec<Metadata>;
 
     fn add_tag(&mut self, item_id: &str, tag: &str) -> Result<(), ()>;
     fn remove_tag(&mut self, item_id: &str, tag: &str) -> Result<(), ()>;
     fn drop_tag(&mut self, tag: &str) -> Result<(), ()>;
 
-    fn load(&self, item_id: &str) -> &Item;
+    fn load(&self, item_id: &str) -> Item;
     fn set_viewing_progress(&mut self, item_id: &str, progress: ViewingProgress) -> Result<(), ()>;
     async fn download_item(&mut self, item_id: &str) -> Result<(), ()>;
 }
@@ -111,6 +111,48 @@ impl LipuInterface for Lipu {
 
         Ok(())
     }
+
+    fn list(&self) -> Vec<Metadata> {
+        self.items
+            .iter()
+            .map(|item| item.metadata.clone())
+            .collect()
+    }
+
+    fn search(&self, query: &str) -> Vec<Metadata> {
+        self.items
+            .iter()
+            .filter(|item| {
+                item.metadata.name.contains(query)
+                    || item
+                        .metadata
+                        .author
+                        .as_ref()
+                        .is_some_and(|author| author.contains(query))
+                    || item
+                        .metadata
+                        .tags
+                        .iter()
+                        .find(|tag| tag.contains(query))
+                        .is_some()
+            })
+            .map(|item| item.metadata.clone())
+            .collect()
+    }
+
+    fn with_tag(&self, tag: &str) -> Vec<Metadata> {
+        self.items
+            .iter()
+            .filter(|item| {
+                item.metadata
+                    .tags
+                    .iter()
+                    .find(|potential| *potential == tag)
+                    .is_some()
+            })
+            .map(|item| item.metadata.clone())
+            .collect()
+    }
 }
 
 pub struct Item {
@@ -118,6 +160,7 @@ pub struct Item {
     pub body: Body,
 }
 
+#[derive(Clone)]
 pub struct Metadata {
     pub id: String,
 
@@ -140,6 +183,7 @@ pub enum Body {
     File { mime_type: String, path: PathBuf },
 }
 
+#[derive(Clone)]
 pub enum ViewingProgress {
     Zero,
     UntilParagraph(usize),
