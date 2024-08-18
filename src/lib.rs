@@ -61,7 +61,16 @@ impl Lipu {
             .map(|(url, xml)| (url, feed_rs::parser::parse(xml.as_bytes())))
             .filter(|(_, feed)| feed.is_ok())
             .map(|(url, feed)| (url, feed.unwrap()))
-            .flat_map(|(url, feed)| feed.entries.into_iter().map(|entry| Item::from(entry, url)))
+            .flat_map(|(url, feed)| {
+                let thumbnail = match feed.logo {
+                    Some(logo) => Some(logo.uri),
+                    None => None,
+                };
+
+                feed.entries
+                    .into_iter()
+                    .map(move |entry| Item::from(entry, url, thumbnail.clone()))
+            })
             .filter(|item| !old_item_ids.contains(&&item.metadata.id))
             .collect();
 
@@ -221,9 +230,9 @@ impl Lipu {
             .ok_or(Error::NotFound)?;
 
         match &item.body {
-            Body::File { .. } => Ok(()),
-            Body::Empty => Ok(()),
-            Body::DownloadLink { mime_type, url } => {
+            Resource::File { .. } => Ok(()),
+            Resource::Missing => Ok(()),
+            Resource::DownloadLink { mime_type, url } => {
                 let bytes = reqwest::get(url)
                     .await
                     .map_err(|_| Error::NoNetwork)?
@@ -241,8 +250,8 @@ impl Lipu {
                     .await
                     .map_err(|_| Error::WriteFileFailed)?;
 
-                item.body = Body::File {
-                    mime_type: mime_type.to_string(),
+                item.body = Resource::File {
+                    mime_type: mime_type.clone(),
                     path,
                 };
 
@@ -255,7 +264,7 @@ impl Lipu {
 #[derive(Clone, Debug)]
 pub struct Item {
     pub metadata: Metadata,
-    pub body: Body,
+    pub body: Resource,
 }
 
 #[derive(Clone, Debug)]
@@ -270,6 +279,8 @@ pub struct Metadata {
     pub author: Option<String>,
     pub description: Option<String>,
 
+    pub thubmnail: Option<Resource>,
+
     pub created: Option<DateTime<Utc>>,
     pub updated: Option<DateTime<Utc>>,
 
@@ -277,10 +288,16 @@ pub struct Metadata {
 }
 
 #[derive(Clone, Debug)]
-pub enum Body {
-    DownloadLink { mime_type: String, url: String },
-    File { mime_type: String, path: PathBuf },
-    Empty,
+pub enum Resource {
+    DownloadLink {
+        mime_type: Option<String>,
+        url: String,
+    },
+    File {
+        mime_type: Option<String>,
+        path: PathBuf,
+    },
+    Missing,
 }
 
 #[derive(Clone, Debug)]
@@ -292,7 +309,15 @@ pub enum ViewingProgress {
 }
 
 impl Item {
-    fn from(entry: feed_rs::model::Entry, feed_url: &str) -> Self {
+    fn from(entry: feed_rs::model::Entry, feed_url: &str, feed_thumbnail: Option<String>) -> Self {
+        let feed_thumbnail = match feed_thumbnail {
+            Some(url) => Some(Resource::DownloadLink {
+                mime_type: None,
+                url: url.to_string(),
+            }),
+            None => None,
+        };
+
         let metadata = Metadata {
             name: match entry.title {
                 Some(title) => title.content,
@@ -320,6 +345,16 @@ impl Item {
                 Some(text) => Some(text.content),
                 None => None,
             },
+            thubmnail: match entry.media.first() {
+                Some(media) => match media.thumbnails.first() {
+                    Some(thumbnail) => Some(Resource::DownloadLink {
+                        mime_type: None,
+                        url: thumbnail.image.uri.clone(),
+                    }),
+                    None => feed_thumbnail,
+                },
+                None => feed_thumbnail,
+            },
             created: entry.published,
             updated: entry.updated,
             viewed: ViewingProgress::Zero,
@@ -328,15 +363,19 @@ impl Item {
         let body = match entry.media.first() {
             Some(body) => match body.content.first() {
                 Some(data) => match (&data.content_type, &data.url) {
-                    (Some(mime_type), Some(url)) => Body::DownloadLink {
-                        mime_type: mime_type.to_string(),
+                    (Some(mime_type), Some(url)) => Resource::DownloadLink {
+                        mime_type: Some(mime_type.to_string()),
                         url: url.to_string(),
                     },
-                    _ => Body::Empty,
+                    (None, Some(url)) => Resource::DownloadLink {
+                        mime_type: None,
+                        url: url.to_string(),
+                    },
+                    _ => Resource::Missing,
                 },
-                None => Body::Empty,
+                None => Resource::Missing,
             },
-            None => Body::Empty,
+            None => Resource::Missing,
         };
 
         Self { metadata, body }

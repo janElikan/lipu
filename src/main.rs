@@ -9,6 +9,7 @@ async fn main() -> Result<()> {
     let mut app = Lipu::new();
 
     app.add_feed("https://www.0atman.com/feed.xml".to_string());
+    app.add_feed("https://xeiaso.net/xecast.rss".to_string());
     app.add_feed("https://www.spreaker.com/show/4488937/episodes/feed".to_string()); // LT
     app.add_feed("https://www.spreaker.com/show/6029902/episodes/feed".to_string()); // TPC
     app.add_feed(
