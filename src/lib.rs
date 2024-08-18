@@ -7,12 +7,18 @@ pub struct Lipu {
     items: Vec<Item>,
 }
 
+pub enum Error {
+    NoNetwork,
+    ParsingFailed,
+    NotFound,
+}
+
 pub trait LipuInterface {
     fn add_feed(&mut self, url: String);
     fn add_mastodon_feed(&mut self, instance: String, user: String);
-    async fn add_youtube_channel(&mut self, name: String);
-    async fn refresh(&mut self) -> Result<(), ()>;
-    fn remove_feed(&mut self, url: &str) -> Result<(), ()>;
+    fn add_youtube_channel(&mut self, channel_id: String);
+    async fn refresh(&mut self) -> Result<(), Error>;
+    fn remove_feed(&mut self, url: &str) -> Result<(), Error>;
 
     fn list(&self) -> &[Metadata];
     fn search(&self, query: &str) -> &[Metadata];
@@ -27,7 +33,85 @@ pub trait LipuInterface {
     async fn download_item(&mut self, item_id: &str) -> Result<(), ()>;
 }
 
-impl LipuInterface for Lipu {}
+impl Lipu {
+    fn new() -> Self {
+        Self {
+            feeds: Vec::new(),
+            items: Vec::new(),
+        }
+    }
+}
+
+impl LipuInterface for Lipu {
+    fn add_feed(&mut self, url: String) {
+        self.feeds.push(url);
+    }
+
+    fn add_mastodon_feed(&mut self, instance: String, user: String) {
+        let url = format!("https://{instance}/@{user}.rss");
+        self.feeds.push(url);
+    }
+
+    fn add_youtube_channel(&mut self, channel_id: String) {
+        let url = format!("https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}");
+        self.feeds.push(url);
+    }
+
+    async fn refresh(&mut self) -> Result<(), Error> {
+        let old_item_ids: Vec<_> = self.items.iter().map(|item| &item.metadata.id).collect();
+
+        let mut feeds = Vec::new();
+        for url in &self.feeds {
+            let xml = reqwest::get(url)
+                .await
+                .map_err(|_| Error::NoNetwork)?
+                .text()
+                .await
+                .map_err(|_| Error::ParsingFailed)?;
+
+            feeds.push((url, xml));
+        }
+
+        let new_items: Vec<_> = feeds
+            .into_iter()
+            .map(|(url, xml)| (url, feed_rs::parser::parse(xml.as_bytes())))
+            .filter(|(_, feed)| feed.is_ok())
+            .map(|(url, feed)| (url, feed.unwrap()))
+            .flat_map(|(url, feed)| feed.entries.into_iter().map(|entry| Item::from(entry, url)))
+            .filter(|item| !old_item_ids.contains(&&item.metadata.id))
+            .collect();
+
+        new_items.into_iter().for_each(|item| self.items.push(item));
+
+        Ok(())
+    }
+
+    fn remove_feed(&mut self, url: &str) -> Result<(), Error> {
+        let (idx, _) = self
+            .feeds
+            .iter()
+            .enumerate()
+            .find(|(_, feed)| *feed == url)
+            .ok_or(Error::NotFound)?;
+
+        self.feeds.remove(idx);
+
+        let item_indexes: Vec<_> = self
+            .items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| item.metadata.feed_url == url)
+            .map(|(idx, _)| idx)
+            .rev()
+            .collect();
+
+        item_indexes.into_iter().for_each(|idx| {
+            self.items.remove(idx);
+        });
+
+        Ok(())
+    }
+}
 
 pub struct Item {
     pub metadata: Metadata,
@@ -63,13 +147,13 @@ pub enum ViewingProgress {
     Fully,
 }
 
-pub enum ArticleCreationError {
-    UnknownMimeType,
-    EmptyBody,
-    EmptyContent,
-    MissingDownloadUrl,
+impl Item {
+    fn from(entry: feed_rs::model::Entry, feed_url: &str) -> Self {
+        todo!();
+    }
 }
 
+/*
 impl TryFrom<feed_rs::model::Entry> for Item {
     type Error = ArticleCreationError;
 
@@ -153,3 +237,4 @@ impl TryFrom<feed_rs::model::Entry> for Item {
         })
     }
 }
+*/
