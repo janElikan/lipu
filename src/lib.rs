@@ -293,72 +293,15 @@ pub enum ViewingProgress {
 
 impl Item {
     fn from(entry: feed_rs::model::Entry, feed_url: &str) -> Self {
-        todo!();
-    }
-}
-
-/*
-impl TryFrom<feed_rs::model::Entry> for Item {
-    type Error = ArticleCreationError;
-
-    fn try_from(entry: feed_rs::model::Entry) -> Result<Self, Self::Error> {
-        let summary = match entry.summary {
-            Some(text) => Some(text.content),
-            None => None,
-        };
-
-        let body = if entry.media.is_empty() {
-            let text = match entry.content {
-                Some(content) => content.body,
-                None => None,
-            };
-
-            Body::Html(text.unwrap_or(summary.clone().ok_or(Self::Error::EmptyBody)?))
-        } else {
-            let media = entry
-                .media
-                .into_iter()
-                .next()
-                .expect("just checked that it had media and now it doesn't");
-
-            // I haven't seen anyone attach more than one media item...
-            let media = media
-                .content
-                .into_iter()
-                .next()
-                .ok_or(Self::Error::EmptyContent)?;
-
-            let payload = MediaLink {
-                url: media
-                    .url
-                    .ok_or(Self::Error::MissingDownloadUrl)?
-                    .to_string(),
-                mime_type: media
-                    .content_type
-                    .ok_or(Self::Error::UnknownMimeType)?
-                    .to_string(),
-                downloaded: false,
-            };
-
-            match payload
-                .mime_type
-                .split_once('/')
-                .ok_or(Self::Error::UnknownMimeType)?
-            {
-                ("application", "x-shockwave-flash") => Body::YouTubeLink(payload.url),
-                ("video", _) => Body::Video(payload),
-                ("audio", _) => Body::Audio(payload),
-                _ => return Err(Self::Error::UnknownMimeType),
-            }
-        };
-
-        Ok(Self {
-            id: entry.id,
+        let metadata = Metadata {
             name: match entry.title {
-                Some(text) => text.content,
-                None => "??".to_string(),
+                Some(title) => title.content,
+                None => entry.id.clone(),
             },
-            source: entry.source,
+            id: entry.id,
+            tags: Vec::new(),
+            feed_url: feed_url.to_string(),
+            link: entry.source,
             author: {
                 if entry.authors.is_empty() {
                     None
@@ -373,12 +316,29 @@ impl TryFrom<feed_rs::model::Entry> for Item {
                     Some(authors)
                 }
             },
-            description: summary,
+            description: match entry.summary {
+                Some(text) => Some(text.content),
+                None => None,
+            },
             created: entry.published,
             updated: entry.updated,
             viewed: ViewingProgress::Zero,
-            body,
-        })
+        };
+
+        let body = match entry.media.first() {
+            Some(body) => match body.content.first() {
+                Some(data) => match (&data.content_type, &data.url) {
+                    (Some(mime_type), Some(url)) => Body::DownloadLink {
+                        mime_type: mime_type.to_string(),
+                        url: url.to_string(),
+                    },
+                    _ => Body::Empty,
+                },
+                None => Body::Empty,
+            },
+            None => Body::Empty,
+        };
+
+        Self { metadata, body }
     }
 }
-*/
