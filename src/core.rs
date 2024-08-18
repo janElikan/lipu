@@ -1,42 +1,66 @@
+use std::path::PathBuf;
+
 use chrono::{DateTime, Utc};
 
-#[derive(Debug, Clone)]
-pub struct Article {
+pub struct Lipu {
+    feeds: Vec<String>,
+    items: Vec<Item>,
+}
+
+trait LipuInterface {
+    fn add_feed(&mut self, url: String);
+    fn add_mastodon_feed(&mut self, instance: String, user: String);
+    async fn add_youtube_channel(&mut self, name: String);
+    async fn refresh(&mut self) -> Result<(), ()>;
+    fn remove_feed(&mut self, url: &str) -> Result<(), ()>;
+
+    fn list(&self) -> &[Metadata];
+    fn search(&self, query: &str) -> &[Metadata];
+    fn with_tag(&self) -> &[Metadata];
+
+    fn add_tag(&mut self, item_id: &str, tag: &str) -> Result<(), ()>;
+    fn remove_tag(&mut self, item_id: &str, tag: &str) -> Result<(), ()>;
+    fn drop_tag(&mut self, tag: &str) -> Result<(), ()>;
+
+    fn load(&self, item_id: &str) -> &Item;
+    fn set_viewing_progress(&mut self, item_id: &str, progress: ViewingProgress) -> Result<(), ()>;
+    async fn download_item(&mut self, item_id: &str) -> Result<(), ()>;
+}
+
+pub struct Item {
+    pub metadata: Metadata,
+    pub body: Body,
+}
+
+pub struct Metadata {
     pub id: String,
+
     pub name: String,
-    pub source: Option<String>,
+    pub tags: Vec<String>,
+
+    pub feed_url: String,
+    pub link: Option<String>,
     pub author: Option<String>,
     pub description: Option<String>,
-    pub body: ArticleBody,
+
     pub created: Option<DateTime<Utc>>,
     pub updated: Option<DateTime<Utc>>,
-    pub viewed: Progress,
+
+    pub viewed: ViewingProgress,
 }
 
-#[derive(Debug, Clone)]
-pub enum ArticleBody {
-    Text(String),
-    Video(MediaPayload),
-    Audio(MediaPayload),
-    YouTubeLink(String),
+pub enum Body {
+    DownloadLink { mime_type: String, url: String },
+    File { mime_type: String, path: PathBuf },
 }
 
-#[derive(Debug, Clone)]
-pub enum Progress {
-    None,
-    UntilLine(usize),
+pub enum ViewingProgress {
+    Zero,
+    UntilParagraph(usize),
     UntilSecond(usize),
     Fully,
 }
 
-#[derive(Debug, Clone)]
-pub struct MediaPayload {
-    pub url: String,
-    pub mime_type: String,
-    pub downloaded: bool,
-}
-
-#[derive(Debug)]
 pub enum ArticleCreationError {
     UnknownMimeType,
     EmptyBody,
@@ -44,7 +68,7 @@ pub enum ArticleCreationError {
     MissingDownloadUrl,
 }
 
-impl TryFrom<feed_rs::model::Entry> for Article {
+impl TryFrom<feed_rs::model::Entry> for Item {
     type Error = ArticleCreationError;
 
     fn try_from(entry: feed_rs::model::Entry) -> Result<Self, Self::Error> {
@@ -59,7 +83,7 @@ impl TryFrom<feed_rs::model::Entry> for Article {
                 None => None,
             };
 
-            ArticleBody::Text(text.unwrap_or(summary.clone().ok_or(Self::Error::EmptyBody)?))
+            Body::Html(text.unwrap_or(summary.clone().ok_or(Self::Error::EmptyBody)?))
         } else {
             let media = entry
                 .media
@@ -74,7 +98,7 @@ impl TryFrom<feed_rs::model::Entry> for Article {
                 .next()
                 .ok_or(Self::Error::EmptyContent)?;
 
-            let payload = MediaPayload {
+            let payload = MediaLink {
                 url: media
                     .url
                     .ok_or(Self::Error::MissingDownloadUrl)?
@@ -91,9 +115,9 @@ impl TryFrom<feed_rs::model::Entry> for Article {
                 .split_once('/')
                 .ok_or(Self::Error::UnknownMimeType)?
             {
-                ("application", "x-shockwave-flash") => ArticleBody::YouTubeLink(payload.url),
-                ("video", _) => ArticleBody::Video(payload),
-                ("audio", _) => ArticleBody::Audio(payload),
+                ("application", "x-shockwave-flash") => Body::YouTubeLink(payload.url),
+                ("video", _) => Body::Video(payload),
+                ("audio", _) => Body::Audio(payload),
                 _ => return Err(Self::Error::UnknownMimeType),
             }
         };
@@ -122,7 +146,7 @@ impl TryFrom<feed_rs::model::Entry> for Article {
             description: summary,
             created: entry.published,
             updated: entry.updated,
-            viewed: Progress::None,
+            viewed: ViewingProgress::Zero,
             body,
         })
     }

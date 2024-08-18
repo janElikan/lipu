@@ -2,7 +2,7 @@ use std::fs;
 
 use color_eyre::eyre::Result;
 use lipu::{
-    core::{ArticleBody, Progress},
+    core::{Body, ViewingProgress},
     App,
 };
 
@@ -26,11 +26,11 @@ async fn main() -> Result<()> {
             .iter_mut()
             .find(|candidate| candidate.id == selected.id)
             .expect("Error in the inquire crate")
-            .viewed = Progress::Fully;
+            .viewed = ViewingProgress::Fully;
 
         match &selected.body {
-            ArticleBody::Text(text) => println!("#{}\n{}", selected.name, text),
-            ArticleBody::Audio(payload) => {
+            Body::Html(text) => println!("#{}\n{}", selected.name, text),
+            Body::Audio(payload) => {
                 if !confirm_download()? {
                     continue;
                 }
@@ -40,8 +40,8 @@ async fn main() -> Result<()> {
 
                 fs::write(path, stream)?;
             }
-            ArticleBody::YouTubeLink(link) => println!("\n\n{link}\n\n"),
-            ArticleBody::Video(_payload) => {
+            Body::YouTubeLink(link) => println!("\n\n{link}\n\n"),
+            Body::Video(_payload) => {
                 todo!()
             }
         }
