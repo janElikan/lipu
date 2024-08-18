@@ -1,16 +1,20 @@
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
+use tokio::{fs, io::AsyncWriteExt};
 
 pub struct Lipu {
     feeds: Vec<String>,
     items: Vec<Item>,
+    downloads_path: PathBuf,
 }
 
 pub enum Error {
     NoNetwork,
-    ParsingFailed,
+    CorruptedData,
     NotFound,
+    CreateFileFailed,
+    WriteFileFailed,
 }
 
 pub trait LipuInterface {
@@ -28,9 +32,13 @@ pub trait LipuInterface {
     fn remove_tag(&mut self, item_id: &str, tag: &str) -> Result<(), Error>;
     fn drop_tag(&mut self, tag: &str) -> Result<(), Error>;
 
-    fn load(&self, item_id: &str) -> Item;
-    fn set_viewing_progress(&mut self, item_id: &str, progress: ViewingProgress) -> Result<(), ()>;
-    async fn download_item(&mut self, item_id: &str) -> Result<(), ()>;
+    fn load(&self, item_id: &str) -> Option<Item>;
+    fn set_viewing_progress(
+        &mut self,
+        item_id: &str,
+        progress: ViewingProgress,
+    ) -> Result<(), Error>;
+    async fn download_item(&mut self, item_id: &str) -> Result<(), Error>;
 }
 
 impl Lipu {
@@ -38,6 +46,7 @@ impl Lipu {
         Self {
             feeds: Vec::new(),
             items: Vec::new(),
+            downloads_path: "./downloads".into(),
         }
     }
 }
@@ -67,7 +76,7 @@ impl LipuInterface for Lipu {
                 .map_err(|_| Error::NoNetwork)?
                 .text()
                 .await
-                .map_err(|_| Error::ParsingFailed)?;
+                .map_err(|_| Error::CorruptedData)?;
 
             feeds.push((url, xml));
         }
@@ -205,8 +214,70 @@ impl LipuInterface for Lipu {
             .map(|idx| self.remove_tag(&idx, tag))
             .collect()
     }
+
+    fn load(&self, item_id: &str) -> Option<Item> {
+        self.items
+            .iter()
+            .find(|item| item.metadata.id == item_id)
+            .cloned()
+    }
+
+    fn set_viewing_progress(
+        &mut self,
+        item_id: &str,
+        progress: ViewingProgress,
+    ) -> Result<(), Error> {
+        let item = self
+            .items
+            .iter_mut()
+            .find(|item| item.metadata.id == item_id)
+            .ok_or(Error::NotFound)?;
+
+        item.metadata.viewed = progress;
+
+        Ok(())
+    }
+
+    async fn download_item(&mut self, item_id: &str) -> Result<(), Error> {
+        let item = self
+            .items
+            .iter_mut()
+            .find(|item| item.metadata.id == item_id)
+            .ok_or(Error::NotFound)?;
+
+        match &item.body {
+            Body::File { .. } => Ok(()),
+            Body::Empty => Ok(()),
+            Body::DownloadLink { mime_type, url } => {
+                let bytes = reqwest::get(url)
+                    .await
+                    .map_err(|_| Error::NoNetwork)?
+                    .bytes()
+                    .await
+                    .map_err(|_| Error::CorruptedData)?;
+
+                let mut path = self.downloads_path.clone();
+                path.push(item.metadata.id.clone());
+
+                fs::File::create(path.clone())
+                    .await
+                    .map_err(|_| Error::CreateFileFailed)?
+                    .write_all(&bytes)
+                    .await
+                    .map_err(|_| Error::WriteFileFailed)?;
+
+                item.body = Body::File {
+                    mime_type: mime_type.to_string(),
+                    path,
+                };
+
+                Ok(())
+            }
+        }
+    }
 }
 
+#[derive(Clone)]
 pub struct Item {
     pub metadata: Metadata,
     pub body: Body,
@@ -230,9 +301,11 @@ pub struct Metadata {
     pub viewed: ViewingProgress,
 }
 
+#[derive(Clone)]
 pub enum Body {
     DownloadLink { mime_type: String, url: String },
     File { mime_type: String, path: PathBuf },
+    Empty,
 }
 
 #[derive(Clone)]
