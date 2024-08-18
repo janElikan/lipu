@@ -24,9 +24,9 @@ pub trait LipuInterface {
     fn search(&self, query: &str) -> Vec<Metadata>;
     fn with_tag(&self, tag: &str) -> Vec<Metadata>;
 
-    fn add_tag(&mut self, item_id: &str, tag: &str) -> Result<(), ()>;
-    fn remove_tag(&mut self, item_id: &str, tag: &str) -> Result<(), ()>;
-    fn drop_tag(&mut self, tag: &str) -> Result<(), ()>;
+    fn add_tag(&mut self, item_id: &str, tag: &str) -> Result<(), Error>;
+    fn remove_tag(&mut self, item_id: &str, tag: &str) -> Result<(), Error>;
+    fn drop_tag(&mut self, tag: &str) -> Result<(), Error>;
 
     fn load(&self, item_id: &str) -> Item;
     fn set_viewing_progress(&mut self, item_id: &str, progress: ViewingProgress) -> Result<(), ()>;
@@ -151,6 +151,58 @@ impl LipuInterface for Lipu {
                     .is_some()
             })
             .map(|item| item.metadata.clone())
+            .collect()
+    }
+
+    fn add_tag(&mut self, item_id: &str, tag: &str) -> Result<(), Error> {
+        self.items
+            .iter_mut()
+            .find(|item| item.metadata.id == item_id)
+            .ok_or(Error::NotFound)?
+            .metadata
+            .tags
+            .push(tag.to_string());
+
+        Ok(())
+    }
+
+    fn remove_tag(&mut self, item_id: &str, tag: &str) -> Result<(), Error> {
+        let item = self
+            .items
+            .iter_mut()
+            .find(|item| item.metadata.id == item_id)
+            .ok_or(Error::NotFound)?;
+
+        let (idx, _) = item
+            .metadata
+            .tags
+            .iter()
+            .enumerate()
+            .find(|(_, potential)| *potential == tag)
+            .ok_or(Error::NotFound)?;
+
+        item.metadata.tags.remove(idx);
+
+        Ok(())
+    }
+
+    fn drop_tag(&mut self, tag: &str) -> Result<(), Error> {
+        let items_with_tag: Vec<_> = self
+            .items
+            .iter()
+            .filter(|item| {
+                item.metadata
+                    .tags
+                    .iter()
+                    .find(|potential| *potential == tag)
+                    .is_some()
+            })
+            .map(|item| item.metadata.id.clone())
+            .collect();
+
+        items_with_tag
+            .into_iter()
+            .map(|idx| self.remove_tag(&idx, tag))
             .collect()
     }
 }
