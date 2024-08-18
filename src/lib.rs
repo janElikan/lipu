@@ -7,7 +7,7 @@ pub struct Lipu {
     items: Vec<Item>,
 }
 
-trait LipuInterface {
+pub trait LipuInterface {
     fn add_feed(&mut self, url: String);
     fn add_mastodon_feed(&mut self, instance: String, user: String);
     async fn add_youtube_channel(&mut self, name: String);
@@ -26,6 +26,8 @@ trait LipuInterface {
     fn set_viewing_progress(&mut self, item_id: &str, progress: ViewingProgress) -> Result<(), ()>;
     async fn download_item(&mut self, item_id: &str) -> Result<(), ()>;
 }
+
+impl LipuInterface for Lipu {}
 
 pub struct Item {
     pub metadata: Metadata,
