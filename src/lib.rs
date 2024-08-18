@@ -9,6 +9,7 @@ pub struct Lipu {
     downloads_path: PathBuf,
 }
 
+#[derive(Debug)]
 pub enum Error {
     NoNetwork,
     CorruptedData,
@@ -17,56 +18,30 @@ pub enum Error {
     WriteFileFailed,
 }
 
-pub trait LipuInterface {
-    fn add_feed(&mut self, url: String);
-    fn add_mastodon_feed(&mut self, instance: String, user: String);
-    fn add_youtube_channel(&mut self, channel_id: String);
-    async fn refresh(&mut self) -> Result<(), Error>;
-    fn remove_feed(&mut self, url: &str) -> Result<(), Error>;
-
-    fn list(&self) -> Vec<Metadata>;
-    fn search(&self, query: &str) -> Vec<Metadata>;
-    fn with_tag(&self, tag: &str) -> Vec<Metadata>;
-
-    fn add_tag(&mut self, item_id: &str, tag: &str) -> Result<(), Error>;
-    fn remove_tag(&mut self, item_id: &str, tag: &str) -> Result<(), Error>;
-    fn drop_tag(&mut self, tag: &str) -> Result<(), Error>;
-
-    fn load(&self, item_id: &str) -> Option<Item>;
-    fn set_viewing_progress(
-        &mut self,
-        item_id: &str,
-        progress: ViewingProgress,
-    ) -> Result<(), Error>;
-    async fn download_item(&mut self, item_id: &str) -> Result<(), Error>;
-}
-
 impl Lipu {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             feeds: Vec::new(),
             items: Vec::new(),
             downloads_path: "./downloads".into(),
         }
     }
-}
 
-impl LipuInterface for Lipu {
-    fn add_feed(&mut self, url: String) {
+    pub fn add_feed(&mut self, url: String) {
         self.feeds.push(url);
     }
 
-    fn add_mastodon_feed(&mut self, instance: String, user: String) {
+    pub fn add_mastodon_feed(&mut self, instance: String, user: String) {
         let url = format!("https://{instance}/@{user}.rss");
         self.feeds.push(url);
     }
 
-    fn add_youtube_channel(&mut self, channel_id: String) {
+    pub fn add_youtube_channel(&mut self, channel_id: String) {
         let url = format!("https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}");
         self.feeds.push(url);
     }
 
-    async fn refresh(&mut self) -> Result<(), Error> {
+    pub async fn refresh(&mut self) -> Result<(), Error> {
         let old_item_ids: Vec<_> = self.items.iter().map(|item| &item.metadata.id).collect();
 
         let mut feeds = Vec::new();
@@ -95,7 +70,7 @@ impl LipuInterface for Lipu {
         Ok(())
     }
 
-    fn remove_feed(&mut self, url: &str) -> Result<(), Error> {
+    pub fn remove_feed(&mut self, url: &str) -> Result<(), Error> {
         let (idx, _) = self
             .feeds
             .iter()
@@ -121,14 +96,14 @@ impl LipuInterface for Lipu {
         Ok(())
     }
 
-    fn list(&self) -> Vec<Metadata> {
+    pub fn list(&self) -> Vec<Metadata> {
         self.items
             .iter()
             .map(|item| item.metadata.clone())
             .collect()
     }
 
-    fn search(&self, query: &str) -> Vec<Metadata> {
+    pub fn search(&self, query: &str) -> Vec<Metadata> {
         self.items
             .iter()
             .filter(|item| {
@@ -149,7 +124,7 @@ impl LipuInterface for Lipu {
             .collect()
     }
 
-    fn with_tag(&self, tag: &str) -> Vec<Metadata> {
+    pub fn with_tag(&self, tag: &str) -> Vec<Metadata> {
         self.items
             .iter()
             .filter(|item| {
@@ -163,7 +138,7 @@ impl LipuInterface for Lipu {
             .collect()
     }
 
-    fn add_tag(&mut self, item_id: &str, tag: &str) -> Result<(), Error> {
+    pub fn add_tag(&mut self, item_id: &str, tag: &str) -> Result<(), Error> {
         self.items
             .iter_mut()
             .find(|item| item.metadata.id == item_id)
@@ -175,7 +150,7 @@ impl LipuInterface for Lipu {
         Ok(())
     }
 
-    fn remove_tag(&mut self, item_id: &str, tag: &str) -> Result<(), Error> {
+    pub fn remove_tag(&mut self, item_id: &str, tag: &str) -> Result<(), Error> {
         let item = self
             .items
             .iter_mut()
@@ -195,7 +170,7 @@ impl LipuInterface for Lipu {
         Ok(())
     }
 
-    fn drop_tag(&mut self, tag: &str) -> Result<(), Error> {
+    pub fn drop_tag(&mut self, tag: &str) -> Result<(), Error> {
         let items_with_tag: Vec<_> = self
             .items
             .iter()
@@ -215,14 +190,14 @@ impl LipuInterface for Lipu {
             .collect()
     }
 
-    fn load(&self, item_id: &str) -> Option<Item> {
+    pub fn load(&self, item_id: &str) -> Option<Item> {
         self.items
             .iter()
             .find(|item| item.metadata.id == item_id)
             .cloned()
     }
 
-    fn set_viewing_progress(
+    pub fn set_viewing_progress(
         &mut self,
         item_id: &str,
         progress: ViewingProgress,
@@ -238,7 +213,7 @@ impl LipuInterface for Lipu {
         Ok(())
     }
 
-    async fn download_item(&mut self, item_id: &str) -> Result<(), Error> {
+    pub async fn download_item(&mut self, item_id: &str) -> Result<(), Error> {
         let item = self
             .items
             .iter_mut()
@@ -277,13 +252,13 @@ impl LipuInterface for Lipu {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Item {
     pub metadata: Metadata,
     pub body: Body,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Metadata {
     pub id: String,
 
@@ -301,14 +276,14 @@ pub struct Metadata {
     pub viewed: ViewingProgress,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Body {
     DownloadLink { mime_type: String, url: String },
     File { mime_type: String, path: PathBuf },
     Empty,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ViewingProgress {
     Zero,
     UntilParagraph(usize),
