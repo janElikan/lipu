@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncWriteExt};
 
 pub struct Lipu {
@@ -9,7 +10,7 @@ pub struct Lipu {
     downloads_path: PathBuf,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Error {
     NoNetwork,
     CorruptedData,
@@ -261,13 +262,13 @@ impl Lipu {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Item {
     pub metadata: Metadata,
     pub body: Resource,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Metadata {
     pub id: String,
 
@@ -287,7 +288,7 @@ pub struct Metadata {
     pub viewed: ViewingProgress,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Resource {
     DownloadLink {
         mime_type: Option<String>,
@@ -300,7 +301,7 @@ pub enum Resource {
     Missing,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ViewingProgress {
     Zero,
     UntilParagraph(usize),
