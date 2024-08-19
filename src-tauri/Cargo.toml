@@ -3,13 +3,23 @@ name = "lipu"
 version = "0.2.0"
 edition = "2021"
 
+[lib]
+name = "lipu_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0.0-rc", features = [] }
+
 [dependencies]
+tauri = { version = "2.0.0-rc", features = [] }
+tauri-plugin-shell = "2.0.0-rc"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 chrono = { version = "0.4.38", features = ["serde"] }
 color-eyre = "0.6.3"
 feed-rs = "2.1.0"
 inquire = "0.7.5"
 reqwest = { version = "0.12.5", features = ["rustls-tls"], default-features = false }
-serde = "1.0.208"
 tokio = { version = "1.39.2", features = ["full", "net", "rt"] }
 
 [lints.rust]

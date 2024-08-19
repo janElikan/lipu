@@ -3,3 +3,4 @@ result
 .direnv
 /target
 /dist
+/node_modules
