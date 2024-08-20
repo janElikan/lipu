@@ -1,22 +1,25 @@
-import { invoke } from "@tauri-apps/api/core";
+import { backend } from "./backend";
 
-let greetInputEl: HTMLInputElement | null;
-let greetMsgEl: HTMLElement | null;
-
-async function greet() {
-  if (greetMsgEl && greetInputEl) {
-    // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-    greetMsgEl.textContent = await invoke("greet", {
-      name: greetInputEl.value,
-    });
-  }
-}
+const utils = {
+  wrapInput: (callback: (data: string) => Promise<any>) => {
+    return (event: Event) => callback((event.target as any)?.value || "");
+  },
+};
 
 window.addEventListener("DOMContentLoaded", () => {
-  greetInputEl = document.querySelector("#greet-input");
-  greetMsgEl = document.querySelector("#greet-msg");
-  document.querySelector("#greet-form")?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    greet();
-  });
+  backend.addFeed("https://www.0atman.com/feed.xml");
+  backend.addFeed("https://xeiaso.net/xecast.rss");
+  backend.addFeed("https://www.spreaker.com/show/4488937/episodes/feed"); // LT
+  backend.addFeed("https://www.spreaker.com/show/6029902/episodes/feed"); // TPC
+  backend.addFeed("https://www.youtube.com/feeds/videos.xml?channel_id=UCUMwY9iS8oMyWDYIe6_RmoA"); // NB
+
+  const elements = {
+    list: {
+      search: document.querySelector('#list-search'),
+      refresh: document.querySelector('#list-refresh'),
+      list: document.querySelector('#list-list'),
+    },
+  };
+
+  elements.list.search?.addEventListener("onchange", utils.wrapInput(backend.search))
 });
