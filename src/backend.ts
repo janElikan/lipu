@@ -21,6 +21,10 @@ export const backend = {
         return invoke<Metadata[]>("list");
     },
     search(query: string) {
+        if (!query) {
+            return backend.list()
+        }
+
         return invoke<Metadata[]>("search", { query });
     },
     withTag(tag: string) {

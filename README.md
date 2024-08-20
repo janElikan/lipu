@@ -1,6 +1,7 @@
 The logic part of [lipu](https://janelikan.github.io/lipu), rss reader back-end.
 
 ## Usage
+
 ```rust
 use lipu::App;
 
@@ -12,6 +13,7 @@ let articles: Vec<Article> = app.fetch().await;
 A [CLI app exmaple](https://github.com/janElikan/lipu/blob/main/src/main.rs).
 
 ## Types
+
 ```rust
 pub struct Article {
     pub id: String,
