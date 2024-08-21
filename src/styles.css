@@ -17,6 +17,12 @@ button {
 .list {
     border: 4px solid #89b4fa;
     padding: 1em;
+    max-height: 50vh;
+    overflow: auto;
+}
+
+ul {
+    padding: 0;
 }
 
 .description {

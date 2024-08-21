@@ -22,7 +22,7 @@ export const backend = {
     },
     search(query: string) {
         if (!query) {
-            return backend.list()
+            return backend.list();
         }
 
         return invoke<Metadata[]>("search", { query });

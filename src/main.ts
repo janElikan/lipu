@@ -1,6 +1,7 @@
 import { backend, Metadata } from "./backend";
+import { items } from "./items";
 
-const utils = {
+export const utils = {
     wrapInput: (backendFn: (data: string) => Promise<any>) => {
         return (event: Event) => backendFn((event.target as any)?.value || "");
     },
@@ -13,15 +14,19 @@ const utils = {
     },
 };
 
-const components = {
-    description: (metadata: Metadata) => {
-        const component = document.createElement("pre");
-        component.innerText = JSON.stringify(metadata, null, 4);
-        component.className = "description";
+export function renderDescription(metadata: Metadata) {
+    const element = document.createElement("li");
+    element.innerText = JSON.stringify(metadata, null, 4);
+    element.className = "description";
 
-        return component;
-    },
-};
+    return element;
+}
+
+async function init() {
+    // feeds.init() todo
+    items.init();
+    await items.refresh();
+}
 
 window.addEventListener("DOMContentLoaded", async () => {
     await backend.addFeed("https://www.0atman.com/feed.xml");
@@ -35,28 +40,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     await backend.addFeed(
         "https://www.youtube.com/feeds/videos.xml?channel_id=UCUMwY9iS8oMyWDYIe6_RmoA"
     ); // NB
-    await backend.refresh();
 
-    const elements = {
-        list: {
-            search: document.querySelector("#list-search"),
-            refresh: document.querySelector("#list-refresh"),
-            list: document.querySelector("#list-list"),
-        },
-    };
-
-    function updateList(data: Metadata[]) {
-        elements.list.list?.setHTMLUnsafe("");
-
-        data.map((metadata) => components.description(metadata)).forEach(
-            (component) => elements.list.list?.appendChild(component)
-        );
-    }
-
-    backend.list().then(updateList);
-
-    elements.list.search?.addEventListener(
-        "input",
-        utils.wrapInputAndThen(backend.search, updateList)
-    );
+    await init();
 });
