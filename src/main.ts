@@ -1,5 +1,6 @@
 import { backend, Metadata } from "./backend";
 import { items } from "./items";
+import { reader } from "./reader";
 
 export const utils = {
     wrapInput: (backendFn: (data: string) => Promise<any>) => {
@@ -14,12 +15,32 @@ export const utils = {
     },
 };
 
-export function renderDescription(metadata: Metadata) {
-    const element = document.createElement("li");
-    element.innerText = JSON.stringify(metadata, null, 4);
-    element.className = "description";
+export function renderDescription(
+    metadata: Metadata,
+    onOpen?: (id: string) => void
+) {
+    const box = document.createElement("li");
+    box.className = "description";
 
-    return element;
+    const text = document.createElement("pre");
+    text.innerText = JSON.stringify(metadata, null, 4);
+    box.appendChild(text);
+
+    if (onOpen) {
+        const open = document.createElement("button");
+        open.innerText = "open";
+        open.addEventListener("click", () => onOpen(metadata.id));
+        box.appendChild(open);
+    }
+
+    return box;
+}
+
+export async function handleOpen(id: string) {
+    const item = await backend.load(id);
+
+    // todo determine body type
+    reader.open(item);
 }
 
 async function init() {

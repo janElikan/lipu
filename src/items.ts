@@ -1,5 +1,5 @@
 import { backend } from "./backend";
-import { renderDescription, utils } from "./main";
+import { handleOpen, renderDescription, utils } from "./main";
 
 const elements = {
     refresh: document.querySelector("#items-refresh") as HTMLButtonElement,
@@ -27,7 +27,7 @@ export const items = {
             ? await backend.search(query)
             : await backend.list();
         items
-            .map(renderDescription)
+            .map((metadata) => renderDescription(metadata, handleOpen))
             .forEach((leaf) => elements.list.appendChild(leaf));
     },
 };

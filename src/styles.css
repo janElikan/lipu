@@ -15,6 +15,7 @@ button {
 }
 
 .list {
+    color: #89b4fa;
     border: 4px solid #89b4fa;
     padding: 1em;
     max-height: 50vh;
@@ -25,6 +26,11 @@ ul {
     padding: 0;
 }
 
-.description {
-    color: #94e2d5;
+.reader {
+    color: #b4befe;
+    border: 4px solid #b4befe;
+
+    a {
+        color: #b4befe;
+    }
 }

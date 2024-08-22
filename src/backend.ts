@@ -8,7 +8,7 @@ export const backend = {
         return invoke("add_mastodon_feed", { instance, user });
     },
     addYoutubeChannel(channelId: string) {
-        return invoke("add_youtube_channel", { channel_id: channelId });
+        return invoke("add_youtube_channel", { channelId });
     },
     refresh() {
         return invoke("refresh");
@@ -32,23 +32,23 @@ export const backend = {
     },
 
     addTag(itemId: string, tag: string) {
-        return invoke("add_tag", { item_id: itemId, tag });
+        return invoke("add_tag", { itemId, tag });
     },
     removeTag(itemId: string, tag: string) {
-        return invoke("remove_tag", { item_id: itemId, tag });
+        return invoke("remove_tag", { itemId, tag });
     },
     dropTag(tag: string) {
         return invoke("drop_tag", { tag });
     },
 
     load(itemId: string) {
-        return invoke<Item>("load", { item_id: itemId });
+        return invoke<Item>("load", { itemId });
     },
     setViewingProgress(itemId: string, progress: ViewingProgress) {
-        return invoke("set_viewing_progress", { item_id: itemId, progress });
+        return invoke("set_viewing_progress", { itemId, progress });
     },
     downloadItem(itemId: string) {
-        return invoke("download_item", { item_id: itemId });
+        return invoke("download_item", { itemId });
     },
 };
 

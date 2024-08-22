@@ -1,4 +1,4 @@
-use lipu::{Lipu, Metadata};
+use lipu::{Item, Lipu, Metadata};
 use serde::Serialize;
 use tauri::{Builder, Manager, State};
 use tokio::sync::Mutex;
@@ -32,6 +32,11 @@ async fn search(query: String, state: State<'_, Mutex<Lipu>>) -> Result<Vec<Meta
     Ok(state.lock().await.search(&query))
 }
 
+#[tauri::command]
+async fn load(item_id: String, state: State<'_, Mutex<Lipu>>) -> Result<Item, BackendError> {
+    state.lock().await.load(&item_id).ok_or(BackendError::CoreError(lipu::Error::NotFound))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     Builder::default()
@@ -40,7 +45,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![add_feed, refresh, list, search])
+        .invoke_handler(tauri::generate_handler![add_feed, refresh, list, search, load])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
