@@ -54,7 +54,7 @@ export const backend = {
 
 export type Item = {
     metadata: Metadata;
-    body: Resource;
+    body: RawResource;
 };
 
 export type Metadata = {
@@ -68,7 +68,7 @@ export type Metadata = {
     author?: string;
     description?: string;
 
-    thubmnail?: Resource;
+    thubmnail?: RawResource;
 
     created?: string;
     updated?: string;
@@ -76,23 +76,66 @@ export type Metadata = {
     viewed: ViewingProgress;
 };
 
-export type Resource =
-    | {
+type RawDownloadLinkResource = {
           DownloadLink: {
               mime_type?: string;
               url: string;
           };
       }
-    | {
+
+type RawFileResource =  {
           File: {
               mime_type?: string;
               path: string;
           };
       }
+
+export type RawResource =
+    | RawDownloadLinkResource
+    | RawFileResource
     | "Missing";
+
+export type Resource = {
+    type: "downloadLink" | "file" | "void",
+    url: string | null;
+    mimeType: string | null;
+    local: boolean;
+};
 
 export type ViewingProgress =
     | "Zero"
     | { UntilParagraph: number }
     | { UntilSecond: number }
     | "Fully";
+
+export function processResource(resource: RawResource): Resource {
+    const type = determineResourceType(resource);
+
+    if (type === "downloadLink") {
+        const {url, mime_type} = (resource as RawDownloadLinkResource).DownloadLink;
+
+        return {type, url, mimeType: mime_type || null, local: false};
+    } else if (type === "file") {
+        const {path, mime_type} = (resource as RawFileResource).File;
+
+        return {type, url: path, mimeType: mime_type || null, local: true};
+    } else {
+        return { type, url: null, mimeType: null, local: true };
+    }
+}
+
+function determineResourceType(resource: RawResource) {
+    if (typeof resource !== "object") {
+        return "void";
+    }
+
+    let key = Object.keys(resource)[0];
+
+    if (key === "DownloadLink") {
+        return "downloadLink";
+    } else if (key === "File") {
+        return "file";
+    } else {
+        return "void";
+    }
+}

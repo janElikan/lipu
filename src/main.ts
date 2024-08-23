@@ -1,4 +1,4 @@
-import { backend, Metadata } from "./backend";
+import { backend, Metadata, processResource } from "./backend";
 import { items } from "./items";
 import { reader } from "./reader";
 
@@ -38,9 +38,9 @@ export function renderDescription(
 
 export async function handleOpen(id: string) {
     const item = await backend.load(id);
+    const body = processResource(item.body);
 
-    // todo determine body type
-    reader.open(item);
+    reader.open(item.metadata, body);
 }
 
 async function init() {
@@ -51,6 +51,7 @@ async function init() {
 
 window.addEventListener("DOMContentLoaded", async () => {
     await backend.addFeed("https://www.0atman.com/feed.xml");
+    await backend.addFeed("https://fasterthanli.me/index.xml");
     await backend.addFeed("https://xeiaso.net/xecast.rss");
     await backend.addFeed(
         "https://www.spreaker.com/show/4488937/episodes/feed"

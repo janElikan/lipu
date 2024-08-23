@@ -34,3 +34,9 @@ ul {
         color: #b4befe;
     }
 }
+
+iframe {
+    width: 100%;
+    min-width: 100px;
+    min-height: 200px;
+}
