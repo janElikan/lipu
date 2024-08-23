@@ -7,6 +7,9 @@ use tokio::{
     io::AsyncWriteExt,
 };
 
+const FEEDS_FILE_NAME: &str = "feeds.json";
+const ITEMS_FILE_NAME: &str = "items.json";
+
 pub struct Lipu {
     feeds: Vec<String>,
     items: Vec<Item>,
@@ -23,11 +26,26 @@ pub enum Error {
 }
 
 impl Lipu {
-    pub fn new() -> Self {
+    pub async fn new(data_path: PathBuf) -> Self {
+        let mut path = data_path.clone();
+
+        path.push(FEEDS_FILE_NAME);
+        let feeds = match fs::read_to_string(&path).await {
+            Ok(feeds) => serde_json::from_str(&feeds).unwrap_or(Vec::new()),
+            Err(_) => Vec::new(),
+        };
+
+        path.pop();
+        path.push(ITEMS_FILE_NAME);
+        let items = match fs::read_to_string(&path).await {
+            Ok(items) => serde_json::from_str(&items).unwrap_or(Vec::new()),
+            Err(_) => Vec::new(),
+        };
+
         Self {
-            feeds: Vec::new(),
-            items: Vec::new(),
-            downloads_path: "./downloads".into(),
+            feeds,
+            items,
+            downloads_path: data_path,
         }
     }
 
@@ -237,6 +255,32 @@ impl Lipu {
             thumbnail.download(&self.downloads_path).await?;
         }
         item.body.download(&self.downloads_path).await?;
+
+        Ok(())
+    }
+
+    pub async fn write_to_disk(&self) -> Result<(), Error> {
+        let mut path = self.downloads_path.clone();
+        path.push(FEEDS_FILE_NAME);
+
+        let feeds = serde_json::to_string_pretty(&self.feeds).map_err(|_| Error::CorruptedData)?;
+        fs::File::create(&path)
+            .await
+            .map_err(|_| Error::CreateFileFailed)?
+            .write(feeds.as_bytes())
+            .await
+            .map_err(|_| Error::WriteFileFailed)?;
+
+        path.pop();
+        path.push(ITEMS_FILE_NAME);
+
+        let items = serde_json::to_string_pretty(&self.items).map_err(|_| Error::CorruptedData)?;
+        fs::File::create(&path)
+            .await
+            .map_err(|_| Error::CreateFileFailed)?
+            .write(items.as_bytes())
+            .await
+            .map_err(|_| Error::WriteFileFailed)?;
 
         Ok(())
     }
