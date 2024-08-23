@@ -50,6 +50,10 @@ impl Lipu {
     }
 
     pub fn add_feed(&mut self, url: String) {
+        if self.feeds.contains(&url) {
+            return;
+        };
+
         self.feeds.push(url);
     }
 
