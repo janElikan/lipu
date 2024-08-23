@@ -1,4 +1,4 @@
-import { backend, Item, Metadata, processResource, Resource } from "./backend";
+import { backend, Item, Metadata, processResource, RawResource, Resource } from "./backend";
 import { generalizedType } from "./files";
 import { handleOpen, renderDescription } from "./main";
 
@@ -11,6 +11,24 @@ const elements = {
 
 function render(html: string) {
     elements.content.innerHTML = html;
+}
+
+function renderThumbnail(thumbnail?: RawResource) {
+    if (!thumbnail) {
+        return
+    }
+
+    const {url, local} = processResource(thumbnail);
+
+    if (!local) {
+        return;
+    }
+
+    const element = document.createElement("img");
+    element.src = url || "";
+    element.alt = "alts are not yet supported";
+
+    elements.content.appendChild(element);
 }
 
 export const reader = {
@@ -47,15 +65,7 @@ export const reader = {
             iframe.src = body.url;
             elements.content.appendChild(iframe);
         } else if (contentType === "audio") {
-            if (metadata.thubmnail) {
-                const {url} = processResource(metadata.thubmnail);
-                // todo downloads
-                const thumbnail = document.createElement("img");
-                thumbnail.src = url || "";
-                thumbnail.alt = "alts are not yet supported";
-
-                elements.content.appendChild(thumbnail);
-            }
+            renderThumbnail(metadata.thubmnail);
 
             const description = document.createElement("p");
             description.innerHTML = metadata.description || "(no description provided)";

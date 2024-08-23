@@ -37,6 +37,11 @@ async fn load(item_id: String, state: State<'_, Mutex<Lipu>>) -> Result<Item, Ba
     state.lock().await.load(&item_id).ok_or(BackendError::CoreError(lipu::Error::NotFound))
 }
 
+#[tauri::command]
+async fn download_item(item_id: String, state: State<'_, Mutex<Lipu>>) -> Result<(), BackendError> {
+    state.lock().await.download_item(&item_id).await.map_err(|why| BackendError::CoreError(why))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     Builder::default()
@@ -45,7 +50,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![add_feed, refresh, list, search, load])
+        .invoke_handler(tauri::generate_handler![add_feed, refresh, list, search, load, download_item])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
