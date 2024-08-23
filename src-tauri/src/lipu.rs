@@ -1,8 +1,11 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tokio::{fs, io::AsyncWriteExt};
+use tokio::{
+    fs::{self, create_dir_all},
+    io::AsyncWriteExt,
+};
 
 pub struct Lipu {
     feeds: Vec<String>,
@@ -230,35 +233,12 @@ impl Lipu {
             .find(|item| item.metadata.id == item_id)
             .ok_or(Error::NotFound)?;
 
-        match &item.body {
-            Resource::File { .. } => Ok(()),
-            Resource::Missing => Ok(()),
-            Resource::DownloadLink { mime_type, url } => {
-                let bytes = reqwest::get(url)
-                    .await
-                    .map_err(|_| Error::NoNetwork)?
-                    .bytes()
-                    .await
-                    .map_err(|_| Error::CorruptedData)?;
-
-                let mut path = self.downloads_path.clone();
-                path.push(item.metadata.id.clone());
-
-                fs::File::create(path.clone())
-                    .await
-                    .map_err(|_| Error::CreateFileFailed)?
-                    .write_all(&bytes)
-                    .await
-                    .map_err(|_| Error::WriteFileFailed)?;
-
-                item.body = Resource::File {
-                    mime_type: mime_type.clone(),
-                    path,
-                };
-
-                Ok(())
-            }
+        if let Some(ref mut thumbnail) = &mut item.metadata.thubmnail {
+            thumbnail.download(&self.downloads_path).await?;
         }
+        item.body.download(&self.downloads_path).await?;
+
+        Ok(())
     }
 }
 
@@ -299,6 +279,48 @@ pub enum Resource {
         path: PathBuf,
     },
     Missing,
+}
+
+impl Resource {
+    pub async fn download(&mut self, directory_path: &Path) -> Result<(), Error> {
+        match self {
+            Resource::File { .. } => Ok(()),
+            Resource::Missing => Ok(()),
+            Resource::DownloadLink { mime_type, url } => {
+                let bytes = reqwest::get(url.clone())
+                    .await
+                    .map_err(|_| Error::NoNetwork)?
+                    .bytes()
+                    .await
+                    .map_err(|_| Error::CorruptedData)?;
+
+                let filename: String = url
+                    .chars()
+                    .filter(|char| char.is_ascii_alphanumeric())
+                    .collect();
+
+                let mut path = directory_path.to_path_buf();
+                create_dir_all(&path)
+                    .await
+                    .map_err(|_| Error::CreateFileFailed)?;
+
+                path.push(filename);
+                fs::File::create(path.clone())
+                    .await
+                    .map_err(|_| Error::CreateFileFailed)?
+                    .write_all(&bytes)
+                    .await
+                    .map_err(|_| Error::WriteFileFailed)?;
+
+                *self = Resource::File {
+                    mime_type: mime_type.clone(),
+                    path,
+                };
+
+                Ok(())
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
