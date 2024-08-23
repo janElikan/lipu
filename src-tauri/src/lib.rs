@@ -10,16 +10,30 @@ enum BackendError {
     CoreError(lipu::Error),
 }
 
+impl From<lipu::Error> for BackendError {
+    fn from(value: lipu::Error) -> Self {
+        Self::CoreError(value)
+    }
+}
+
 #[tauri::command]
 async fn add_feed(url: String, state: State<'_, Mutex<Lipu>>) -> Result<(), BackendError> {
-    state.lock().await.add_feed(url);
+    let mut lipu = state.lock().await;
+
+    lipu.add_feed(url);
+    lipu.write_to_disk().await?;
 
     Ok(())
 }
 
 #[tauri::command]
 async fn refresh(state: State<'_, Mutex<Lipu>>) -> Result<(), BackendError> {
-    state.lock().await.refresh().await.map_err(|why| BackendError::CoreError(why))
+    state
+        .lock()
+        .await
+        .refresh()
+        .await
+        .map_err(BackendError::from)
 }
 
 #[tauri::command]
@@ -28,29 +42,60 @@ async fn list(state: State<'_, Mutex<Lipu>>) -> Result<Vec<Metadata>, BackendErr
 }
 
 #[tauri::command]
-async fn search(query: String, state: State<'_, Mutex<Lipu>>) -> Result<Vec<Metadata>, BackendError> {
+async fn search(
+    query: String,
+    state: State<'_, Mutex<Lipu>>,
+) -> Result<Vec<Metadata>, BackendError> {
     Ok(state.lock().await.search(&query))
 }
 
 #[tauri::command]
 async fn load(item_id: String, state: State<'_, Mutex<Lipu>>) -> Result<Item, BackendError> {
-    state.lock().await.load(&item_id).ok_or(BackendError::CoreError(lipu::Error::NotFound))
+    state
+        .lock()
+        .await
+        .load(&item_id)
+        .ok_or(BackendError::CoreError(lipu::Error::NotFound))
 }
 
 #[tauri::command]
 async fn download_item(item_id: String, state: State<'_, Mutex<Lipu>>) -> Result<(), BackendError> {
-    state.lock().await.download_item(&item_id).await.map_err(|why| BackendError::CoreError(why))
+    let mut lipu = state.lock().await;
+
+    lipu.download_item(&item_id).await?;
+    lipu.write_to_disk().await?;
+
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    println!("Hello, world!");
+
     Builder::default()
         .setup(|app| {
-            app.manage(Mutex::new(Lipu::new()));
+            let data_dir = app
+                .path()
+                .app_data_dir()
+                .expect("Access to the filesystem denied, exiting");
+
+            println!(
+                "[INFO] the directory I'll create files in is `{}`",
+                data_dir.as_os_str().to_str().unwrap_or("non-existant")
+            );
+
+            app.manage(Mutex::new(Lipu::new(data_dir)));
             Ok(())
         })
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![add_feed, refresh, list, search, load, download_item])
+        .invoke_handler(tauri::generate_handler![
+            add_feed,
+            refresh,
+            list,
+            search,
+            load,
+            download_item
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

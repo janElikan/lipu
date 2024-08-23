@@ -43,6 +43,7 @@
         (with fenix.packages.${system};
           combine [
             complete.rustc
+            complete.rustfmt
             complete.cargo
             complete.clippy
             targets.aarch64-linux-android.latest.rust-std
@@ -52,6 +53,9 @@
           ])
         rust-analyzer
         bacon
+
+        (pkgs.writeShellScriptBin "setup" "npm install")
+        (pkgs.writeShellScriptBin "run" "npm run tauri dev")
 
         android_sdk
         jdk
