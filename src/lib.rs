@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tokio::{fs, io::AsyncWriteExt};
+use tokio::{fs::{self, create_dir_all}, io::AsyncWriteExt};
 
 pub struct Lipu {
     feeds: Vec<String>,
@@ -241,9 +241,15 @@ impl Lipu {
                     .await
                     .map_err(|_| Error::CorruptedData)?;
 
-                let mut path = self.downloads_path.clone();
-                path.push(item.metadata.id.clone());
+                let filename: String =  item.metadata.id
+                    .chars()
+                    .filter(|char| char.is_ascii_alphanumeric())
+                    .collect();
 
+                let mut path = self.downloads_path.clone();
+                create_dir_all(&path).await.map_err(|_| Error::CreateFileFailed)?;
+
+                path.push(filename);
                 fs::File::create(path.clone())
                     .await
                     .map_err(|_| Error::CreateFileFailed)?
