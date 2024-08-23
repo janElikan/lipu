@@ -326,7 +326,7 @@ pub enum Resource {
     },
     File {
         mime_type: Option<String>,
-        path: PathBuf,
+        path: String,
     },
     Missing,
 }
@@ -354,7 +354,7 @@ impl Resource {
                     .await
                     .map_err(|_| Error::CreateFileFailed)?;
 
-                path.push(filename);
+                path.push(filename.clone());
                 fs::File::create(path.clone())
                     .await
                     .map_err(|_| Error::CreateFileFailed)?
@@ -364,7 +364,7 @@ impl Resource {
 
                 *self = Resource::File {
                     mime_type: mime_type.clone(),
-                    path,
+                    path: filename,
                 };
 
                 Ok(())

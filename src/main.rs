@@ -6,7 +6,7 @@ use lipu::Lipu;
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let mut app = Lipu::new("data".into()).await;
+    let mut app = Lipu::new("data".into());
 
     app.add_feed("https://xeiaso.net/xecast.rss".to_string());
     app.add_feed("https://www.spreaker.com/show/4488937/episodes/feed".to_string()); // LT
