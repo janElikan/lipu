@@ -26,18 +26,20 @@ pub enum Error {
 }
 
 impl Lipu {
-    pub async fn new(data_path: PathBuf) -> Self {
+    /// ## Warning
+    /// This is a blocking function: attempts to read from fs
+    pub fn new(data_path: PathBuf) -> Self {
         let mut path = data_path.clone();
 
         path.push(FEEDS_FILE_NAME);
-        let feeds = match fs::read_to_string(&path).await {
+        let feeds = match std::fs::read_to_string(&path) {
             Ok(feeds) => serde_json::from_str(&feeds).unwrap_or(Vec::new()),
             Err(_) => Vec::new(),
         };
 
         path.pop();
         path.push(ITEMS_FILE_NAME);
-        let items = match fs::read_to_string(&path).await {
+        let items = match std::fs::read_to_string(&path) {
             Ok(items) => serde_json::from_str(&items).unwrap_or(Vec::new()),
             Err(_) => Vec::new(),
         };
