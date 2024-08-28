@@ -44,6 +44,7 @@ export async function handleOpen(id: string) {
 }
 
 async function init() {
+    await backend.fetchAssetPath();
     // feeds.init() todo
     items.init();
     await items.refresh();

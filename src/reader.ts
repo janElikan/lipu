@@ -1,4 +1,4 @@
-import { backend, Item, Metadata, processResource, RawResource, Resource } from "./backend";
+import { backend, Metadata, processResource, RawResource, Resource } from "./backend";
 import { generalizedType } from "./files";
 import { handleOpen, renderDescription } from "./main";
 

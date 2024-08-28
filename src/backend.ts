@@ -1,4 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { appDataDir, join } from "@tauri-apps/api/path";
 
 export const backend = {
     addFeed(url: string) {
@@ -49,6 +50,11 @@ export const backend = {
     },
     downloadItem(itemId: string) {
         return invoke("download_item", { itemId });
+    },
+
+    assetPath: "",
+    fetchAssetPath: async() => {
+        backend.assetPath = await join(await appDataDir(), "lipu")
     },
 };
 
@@ -114,11 +120,11 @@ export function processResource(resource: RawResource): Resource {
     if (type === "downloadLink") {
         const {url, mime_type} = (resource as RawDownloadLinkResource).DownloadLink;
 
-        return {type, url, mimeType: mime_type || null, local: false};
+        return {type, url: wrapUrl(url), mimeType: mime_type || null, local: false};
     } else if (type === "file") {
         const {path, mime_type} = (resource as RawFileResource).File;
 
-        return {type, url: path, mimeType: mime_type || null, local: true};
+        return {type, url: wrapUrl(path), mimeType: mime_type || null, local: true};
     } else {
         return { type, url: null, mimeType: null, local: true };
     }
@@ -138,4 +144,8 @@ function determineResourceType(resource: RawResource) {
     } else {
         return "void";
     }
+}
+
+function wrapUrl(filename: string) {
+    return convertFileSrc(backend.assetPath + "/" + filename);
 }
