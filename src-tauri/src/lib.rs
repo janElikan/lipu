@@ -80,7 +80,7 @@ pub fn run() {
                 .expect("Access to the filesystem denied, exiting");
             data_dir.push("lipu");
 
-            std::fs::create_dir_all("lipu").expect("Access to filesystem denied, exiting");
+            std::fs::create_dir_all(&data_dir).expect("Access to filesystem denied, exiting");
 
             println!(
                 "[INFO] the directory I'll create files in is `{}`",

@@ -70,6 +70,7 @@ impl Lipu {
     }
 
     pub async fn refresh(&mut self) -> Result<(), Error> {
+        println!("refreshing feed");
         let old_item_ids: Vec<_> = self.items.iter().map(|item| &item.metadata.id).collect();
 
         let mut feeds = Vec::new();

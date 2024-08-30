@@ -1,4 +1,4 @@
-import { backend, Metadata, processResource } from "./backend";
+import { backend, Metadata, processResource, RawResource } from "./backend";
 import { items } from "./items";
 import { reader } from "./reader";
 
@@ -47,11 +47,18 @@ async function init() {
     await backend.fetchAssetPath();
     // feeds.init() todo
     items.init();
-    await items.refresh();
+
+    const source = document.querySelector("#test") as HTMLVideoElement;
+    const itms = await backend.search("pilot");
+    const item = itms[0];
+    const {body} = await backend.load(item.id);
+    const resource = processResource(body as RawResource);
+    source.src = resource.url || "";
+    // source.type = resource.mimeType || "";
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
-    await backend.addFeed("https://www.0atman.com/feed.xml");
+    await backend.addFeed("https://www.0atman.com/feed.xml").catch(console.log);
     await backend.addFeed("https://fasterthanli.me/index.xml");
     await backend.addFeed("https://xeiaso.net/xecast.rss");
     await backend.addFeed(
