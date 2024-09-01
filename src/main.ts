@@ -2,6 +2,8 @@ import { readFile } from "@tauri-apps/plugin-fs";
 import { backend, Metadata, processResource, RawResource } from "./backend";
 import { items } from "./items";
 import { reader } from "./reader";
+import { player } from "./player";
+import { generalizedType } from "./files";
 
 export const utils = {
     wrapInput: (backendFn: (data: string) => Promise<any>) => {
@@ -40,21 +42,19 @@ export function renderDescription(
 export async function handleOpen(id: string) {
     const item = await backend.load(id);
     const body = processResource(item.body);
+    const bodyType = generalizedType(body);
 
     reader.open(item.metadata, body);
+
+    if (bodyType === "audio" || bodyType === "video") {
+        await player.open(item.metadata, body);
+    }
 }
 
 async function init() {
     await backend.fetchAssetPath();
     // feeds.init() todo
     items.init();
-
-    const source = document.querySelector("#test") as HTMLVideoElement;
-    const itms = await backend.search("pilot");
-    const item = itms[0];
-    const {body} = await backend.load(item.id);
-    const resource = processResource(body as RawResource);
-    source.src = await backend.loadFile(resource);
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
