@@ -73,6 +73,7 @@ pub fn run() {
     println!("Hello, world!");
 
     Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let mut data_dir = app
                 .path()

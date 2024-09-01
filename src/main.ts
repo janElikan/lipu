@@ -1,3 +1,4 @@
+import { readFile } from "@tauri-apps/plugin-fs";
 import { backend, Metadata, processResource, RawResource } from "./backend";
 import { items } from "./items";
 import { reader } from "./reader";
@@ -53,8 +54,7 @@ async function init() {
     const item = itms[0];
     const {body} = await backend.load(item.id);
     const resource = processResource(body as RawResource);
-    source.src = resource.url || "";
-    // source.type = resource.mimeType || "";
+    source.src = await backend.loadFile(resource);
 }
 
 window.addEventListener("DOMContentLoaded", async () => {

@@ -1,5 +1,6 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { appDataDir, join } from "@tauri-apps/api/path";
+import { readFile } from "@tauri-apps/plugin-fs";
 
 export const backend = {
     addFeed(url: string) {
@@ -53,8 +54,18 @@ export const backend = {
     },
 
     assetPath: "",
-    fetchAssetPath: async() => {
+    async fetchAssetPath() {
         backend.assetPath = await join(await appDataDir(), "lipu")
+    },
+
+    async loadFile({url}: Resource) {
+        if (!url) {
+            return "error loading file";
+        }
+
+        const bytes = await readFile(url);
+
+        return URL.createObjectURL(new Blob([bytes]));
     },
 };
 
