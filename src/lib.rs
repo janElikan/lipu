@@ -1,15 +1,9 @@
-use std::path::{Path, PathBuf};
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-const FEEDS_FILE_NAME: &str = "feeds.json";
-const ITEMS_FILE_NAME: &str = "items.json";
 
 pub struct Lipu {
     feeds: Vec<String>,
     items: Vec<Item>,
-    downloads_path: PathBuf,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -24,26 +18,10 @@ pub enum Error {
 impl Lipu {
     /// ## Warning
     /// This is a blocking function: attempts to read from fs
-    pub fn new(data_path: PathBuf) -> Self {
-        let mut path = data_path.clone();
-
-        path.push(FEEDS_FILE_NAME);
-        let feeds = match std::fs::read_to_string(&path) {
-            Ok(feeds) => serde_json::from_str(&feeds).unwrap_or(Vec::new()),
-            Err(_) => Vec::new(),
-        };
-
-        path.pop();
-        path.push(ITEMS_FILE_NAME);
-        let items = match std::fs::read_to_string(&path) {
-            Ok(items) => serde_json::from_str(&items).unwrap_or(Vec::new()),
-            Err(_) => Vec::new(),
-        };
-
+    pub fn new() -> Self {
         Self {
-            feeds,
-            items,
-            downloads_path: data_path,
+            feeds: Vec::new(),
+            items: Vec::new(),
         }
     }
 
@@ -245,21 +223,6 @@ impl Lipu {
 
         Ok(())
     }
-
-    pub async fn download_item(&mut self, item_id: &str) -> Result<(), Error> {
-        let item = self
-            .items
-            .iter_mut()
-            .find(|item| item.metadata.id == item_id)
-            .ok_or(Error::NotFound)?;
-
-        if let Some(ref mut thumbnail) = &mut item.metadata.thubmnail {
-            thumbnail.download(&self.downloads_path).await?;
-        }
-        item.body.download(&self.downloads_path).await?;
-
-        Ok(())
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -290,21 +253,11 @@ pub struct Metadata {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Resource {
-    DownloadLink {
+    Link {
         mime_type: Option<String>,
         url: String,
     },
-    File {
-        mime_type: Option<String>,
-        path: String,
-    },
     Missing,
-}
-
-impl Resource {
-    pub async fn download(&mut self, directory_path: &Path) -> Result<(), Error> {
-        todo!()
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -318,7 +271,7 @@ pub enum ViewingProgress {
 impl Item {
     fn from(entry: feed_rs::model::Entry, feed_url: &str, feed_thumbnail: Option<String>) -> Self {
         let feed_thumbnail = match feed_thumbnail {
-            Some(url) => Some(Resource::DownloadLink {
+            Some(url) => Some(Resource::Link {
                 mime_type: None,
                 url: url.to_string(),
             }),
@@ -354,7 +307,7 @@ impl Item {
             },
             thubmnail: match entry.media.first() {
                 Some(media) => match media.thumbnails.first() {
-                    Some(thumbnail) => Some(Resource::DownloadLink {
+                    Some(thumbnail) => Some(Resource::Link {
                         mime_type: None,
                         url: thumbnail.image.uri.clone(),
                     }),
@@ -370,11 +323,11 @@ impl Item {
         let body = match entry.media.first() {
             Some(body) => match body.content.first() {
                 Some(data) => match (&data.content_type, &data.url) {
-                    (Some(mime_type), Some(url)) => Resource::DownloadLink {
+                    (Some(mime_type), Some(url)) => Resource::Link {
                         mime_type: Some(mime_type.to_string()),
                         url: url.to_string(),
                     },
-                    (None, Some(url)) => Resource::DownloadLink {
+                    (None, Some(url)) => Resource::Link {
                         mime_type: None,
                         url: url.to_string(),
                     },
