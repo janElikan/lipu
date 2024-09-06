@@ -2,10 +2,6 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tokio::{
-    fs::{self, create_dir_all},
-    io::AsyncWriteExt,
-};
 
 const FEEDS_FILE_NAME: &str = "feeds.json";
 const ITEMS_FILE_NAME: &str = "items.json";
@@ -264,32 +260,6 @@ impl Lipu {
 
         Ok(())
     }
-
-    pub async fn write_to_disk(&self) -> Result<(), Error> {
-        let mut path = self.downloads_path.clone();
-        path.push(FEEDS_FILE_NAME);
-
-        let feeds = serde_json::to_string_pretty(&self.feeds).map_err(|_| Error::CorruptedData)?;
-        fs::File::create(&path)
-            .await
-            .map_err(|_| Error::CreateFileFailed)?
-            .write(feeds.as_bytes())
-            .await
-            .map_err(|_| Error::WriteFileFailed)?;
-
-        path.pop();
-        path.push(ITEMS_FILE_NAME);
-
-        let items = serde_json::to_string_pretty(&self.items).map_err(|_| Error::CorruptedData)?;
-        fs::File::create(&path)
-            .await
-            .map_err(|_| Error::CreateFileFailed)?
-            .write(items.as_bytes())
-            .await
-            .map_err(|_| Error::WriteFileFailed)?;
-
-        Ok(())
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -333,43 +303,7 @@ pub enum Resource {
 
 impl Resource {
     pub async fn download(&mut self, directory_path: &Path) -> Result<(), Error> {
-        match self {
-            Resource::File { .. } => Ok(()),
-            Resource::Missing => Ok(()),
-            Resource::DownloadLink { mime_type, url } => {
-                let bytes = reqwest::get(url.clone())
-                    .await
-                    .map_err(|_| Error::NoNetwork)?
-                    .bytes()
-                    .await
-                    .map_err(|_| Error::CorruptedData)?;
-
-                let filename: String = url
-                    .chars()
-                    .filter(|char| char.is_ascii_alphanumeric())
-                    .collect();
-
-                let mut path = directory_path.to_path_buf();
-                create_dir_all(&path)
-                    .await
-                    .map_err(|_| Error::CreateFileFailed)?;
-
-                path.push(filename.clone());
-                fs::File::create(path.clone())
-                    .await
-                    .map_err(|_| Error::CreateFileFailed)?
-                    .write_all(&bytes)
-                    .await
-                    .map_err(|_| Error::WriteFileFailed)?;
-
-                *self = Resource::File {
-                    mime_type: mime_type.clone(),
-                    path: filename,
-                };
-
-                Ok(())
-            }
-        }
+        todo!()
     }
 }
 
