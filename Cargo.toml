@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 chrono = { version = "0.4.38", features = ["serde"] }
 color-eyre = "0.6.3"
+console_error_panic_hook = "0.1.7"
 feed-rs = "2.1.0"
 leptos = { version = "0.6.14", features = ["csr", "nightly"] }
 reqwest = { version = "0.12.5", features = ["rustls-tls"], default-features = false }

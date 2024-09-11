@@ -43,7 +43,8 @@
               rust-analyzer
               bacon
               trunk
-              (pkgs.writeShellScriptBin "run" "npm run tauri dev")
+              leptosfmt
+              (pkgs.writeShellScriptBin "run" "trunk serve")
             ];
             RUST_SRC_PATH = rustPlatform.rustLibSrc;
           };
