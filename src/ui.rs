@@ -1,23 +1,28 @@
-use leptos::{component, view, IntoView};
+use leptos::{component, view, For, IntoView, ReadSignal, WriteSignal};
 
 #[component]
-pub fn FeedList() -> impl IntoView {
+pub fn FeedList(
+    feeds: ReadSignal<Vec<lipu::Feed>>,
+    set_feeds: WriteSignal<Vec<lipu::Feed>>,
+) -> impl IntoView {
     view! {
         <div>
             <h2>"Feeds"</h2>
             <ul>
-                <Feed />
+                <For each=feeds key=|item| item.url.clone() let:child>
+                    <Feed feed={child} />
+                </For>
             </ul>
         </div>
     }
 }
 
 #[component]
-pub fn Feed() -> impl IntoView {
+pub fn Feed(feed: lipu::Feed) -> impl IntoView {
     view! {
         <li>
             <h2>"feed title"</h2>
-            <a href="#">"url"</a>
+            <a href="#">{feed.url}</a>
         </li>
     }
 }

@@ -11,9 +11,11 @@ fn main() {
 
 #[component]
 fn App() -> impl IntoView {
+    let (feeds, set_feeds) = create_signal(Vec::new());
+
     view! {
         <div class="grid container">
-            <FeedList />
+            <FeedList feeds={feeds} set_feeds={set_feeds} />
             <ItemList />
             <main>
                 <Reader />

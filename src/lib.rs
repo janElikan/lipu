@@ -15,10 +15,10 @@ pub enum Error {
     WriteFileFailed,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct Feed {
-    name: String,
-    url: String,
-    body: String,
+    pub url: String,
+    pub body: String,
 }
 
 pub fn parse_feed(feed: Feed) -> Vec<Item> {
@@ -183,29 +183,6 @@ impl Lipu {
             .into_iter()
             .map(|idx| self.remove_tag(&idx, tag))
             .collect()
-    }
-
-    pub fn load(&self, item_id: &str) -> Option<Item> {
-        self.items
-            .iter()
-            .find(|item| item.metadata.id == item_id)
-            .cloned()
-    }
-
-    pub fn set_viewing_progress(
-        &mut self,
-        item_id: &str,
-        progress: ViewingProgress,
-    ) -> Result<(), Error> {
-        let item = self
-            .items
-            .iter_mut()
-            .find(|item| item.metadata.id == item_id)
-            .ok_or(Error::NotFound)?;
-
-        item.metadata.viewed = progress;
-
-        Ok(())
     }
 }
 
