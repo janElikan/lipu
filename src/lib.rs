@@ -15,6 +15,28 @@ pub enum Error {
     WriteFileFailed,
 }
 
+pub struct Feed {
+    name: String,
+    url: String,
+    body: String,
+}
+
+pub fn parse_feed(feed: Feed) -> Vec<Item> {
+    let Ok(data) = feed_rs::parser::parse(feed.body.as_bytes()) else {
+        return Vec::new();
+    };
+
+    let thumbnail = match data.logo {
+        Some(logo) => Some(logo.uri),
+        None => None,
+    };
+
+    data.entries
+        .into_iter()
+        .map(move |entry| Item::from(entry, &feed.url, thumbnail.clone()))
+        .collect()
+}
+
 impl Lipu {
     /// ## Warning
     /// This is a blocking function: attempts to read from fs
@@ -41,44 +63,6 @@ impl Lipu {
     pub fn add_youtube_channel(&mut self, channel_id: String) {
         let url = format!("https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}");
         self.feeds.push(url);
-    }
-
-    pub async fn refresh(&mut self) -> Result<(), Error> {
-        let old_item_ids: Vec<_> = self.items.iter().map(|item| &item.metadata.id).collect();
-
-        let mut feeds = Vec::new();
-        for url in &self.feeds {
-            let xml = reqwest::get(url)
-                .await
-                .map_err(|_| Error::NoNetwork)?
-                .text()
-                .await
-                .map_err(|_| Error::CorruptedData)?;
-
-            feeds.push((url, xml));
-        }
-
-        let new_items: Vec<_> = feeds
-            .into_iter()
-            .map(|(url, xml)| (url, feed_rs::parser::parse(xml.as_bytes())))
-            .filter(|(_, feed)| feed.is_ok())
-            .map(|(url, feed)| (url, feed.unwrap()))
-            .flat_map(|(url, feed)| {
-                let thumbnail = match feed.logo {
-                    Some(logo) => Some(logo.uri),
-                    None => None,
-                };
-
-                feed.entries
-                    .into_iter()
-                    .map(move |entry| Item::from(entry, url, thumbnail.clone()))
-            })
-            .filter(|item| !old_item_ids.contains(&&item.metadata.id))
-            .collect();
-
-        new_items.into_iter().for_each(|item| self.items.push(item));
-
-        Ok(())
     }
 
     pub fn remove_feed(&mut self, url: &str) -> Result<(), Error> {
